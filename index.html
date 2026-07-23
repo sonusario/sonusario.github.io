@@ -1,1 +1,1692 @@
-Just testing
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Probabilistic Cellular Automaton</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0d1015;
+  --panel:#151a22;
+  --panel-2:#10141b;
+  --soft:#1d2430;
+  --text:#f7f8fb;
+  --muted:#aeb8c6;
+  --quiet:#7f8b9d;
+  --border:#303a49;
+  --track:#2a3340;
+  --btn:#26303d;
+  --btn2:#344254;
+  --accent:#ff9a00;
+  --birth:#2f83ff;
+  --danger:#ff9a00;
+  --dead-low:#15151d;
+  --dead-high:#0e2e63;
+  --live-low:#ffffff;
+  --live-high:#ff9a00;
+  --radius:12px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:radial-gradient(circle at top left,rgba(255,154,0,.07),transparent 30rem),linear-gradient(#111821,#0d1015 55%);
+  color:var(--text);
+}
+button,input,select{font:inherit}
+button{touch-action:manipulation}
+.app{
+  height:100vh;
+  display:grid;
+  grid-template-rows:auto 1fr;
+  min-width:0;
+}
+.app-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 12px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  background:rgba(12,15,21,.88);
+  backdrop-filter:blur(10px);
+}
+.title-block{min-width:0}
+h1{margin:0;font-size:clamp(1.05rem,.85rem + 1vw,1.5rem);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.subtitle{margin:2px 0 0;color:var(--muted);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.header-actions{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.workspace{
+  min-height:0;
+  display:flex;
+  align-items:stretch;
+  overflow:hidden;
+}
+.control-panel{
+  position:relative;
+  flex:0 0 auto;
+  width:clamp(320px,31vw,560px);
+  min-width:300px;
+  max-width:min(680px,70vw);
+  min-height:0;
+  resize:horizontal;
+  overflow:hidden;
+  border-right:1px solid rgba(255,255,255,.09);
+  background:linear-gradient(180deg,rgba(21,26,34,.98),rgba(17,21,28,.98));
+  box-shadow:14px 0 26px rgba(0,0,0,.28);
+  display:grid;
+  grid-template-rows:auto auto 1fr;
+}
+.control-panel.collapsed{
+  width:52px!important;
+  min-width:52px;
+  max-width:52px;
+  resize:none;
+}
+.control-panel.collapsed .panel-title,
+.control-panel.collapsed .tabs,
+.control-panel.collapsed .panel-scroll{display:none}
+.panel-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:10px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.panel-title{font-weight:800;letter-spacing:.02em;color:#f2f4f8;font-size:.9rem}
+.icon-btn,.btn{
+  border:1px solid var(--border);
+  color:var(--text);
+  background:var(--btn);
+  border-radius:9px;
+  min-height:34px;
+  padding:7px 10px;
+  font-weight:800;
+  cursor:pointer;
+}
+.icon-btn{min-width:34px;padding:0 8px}
+.btn:hover,.icon-btn:hover{background:var(--btn2)}
+.btn.primary{background:#e58b00;border-color:#ffb14b;color:#101010}
+.btn.primary.running{background:#a9341e;border-color:#ff7f66;color:#fff}
+.btn.birth{background:#163963;border-color:#2365b5}
+.btn.death{background:#5a3500;border-color:#d58400;color:#fff7ec}
+.btn.full{width:100%}
+.tabs{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:4px;
+  padding:8px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.tab-button{
+  border:1px solid transparent;
+  color:var(--muted);
+  background:transparent;
+  border-radius:8px;
+  padding:8px 4px;
+  cursor:pointer;
+  font-size:.78rem;
+  font-weight:800;
+}
+.tab-button.active{color:#101010;background:var(--accent);border-color:#ffb653}
+.panel-scroll{
+  position:relative;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+  padding:10px 30px 28px 10px;
+  scrollbar-gutter:stable both-edges;
+}
+.scroll-gutter{
+  position:absolute;
+  top:0;
+  right:0;
+  bottom:0;
+  width:20px;
+  z-index:3;
+  cursor:ns-resize;
+  touch-action:pan-y;
+  background:repeating-linear-gradient(180deg,rgba(174,184,198,.14) 0 6px,transparent 6px 13px);
+  border-left:1px solid rgba(255,255,255,.06);
+  opacity:.72;
+}
+.scroll-gutter:hover{opacity:1}
+.panel-scroll::after{
+  content:"scroll zone";
+  position:sticky;
+  display:block;
+  bottom:0;
+  margin-left:auto;
+  width:100%;
+  pointer-events:none;
+  font-size:.67rem;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:rgba(174,184,198,.42);
+  text-align:right;
+  padding:8px 2px 0;
+}
+.tab-panel{display:none}
+.tab-panel.active{display:grid;gap:10px}
+.card{
+  background:rgba(16,20,27,.84);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:var(--radius);
+  padding:10px;
+  display:grid;
+  gap:9px;
+}
+.card-title{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  margin:0;
+  font-size:.83rem;
+  line-height:1.2;
+  color:#fff;
+  letter-spacing:.02em;
+  text-transform:uppercase;
+}
+.help{margin:0;color:var(--muted);font-size:.76rem;line-height:1.35}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.button-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.button-row.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.field{
+  display:grid;
+  grid-template-columns:minmax(92px,.88fr) minmax(0,1.6fr) 48px;
+  align-items:center;
+  column-gap:8px;
+  row-gap:4px;
+  min-height:34px;
+}
+.field.wide{grid-template-columns:minmax(120px,.9fr) minmax(0,1.7fr) 54px}
+.field label,.field .field-label{
+  color:#d9dee8;
+  font-size:.79rem;
+  font-weight:760;
+  line-height:1.1;
+  justify-self:start;
+}
+.field .unit{color:var(--quiet);font-size:.72rem;font-weight:650;white-space:nowrap}
+.field input[type="range"]{width:100%;min-width:0;touch-action:pan-y;accent-color:var(--accent)}
+.field input[type="number"], .short-number{
+  width:48px;
+  min-width:0;
+  border:1px solid var(--border);
+  border-radius:7px;
+  background:#0e1218;
+  color:var(--text);
+  padding:5px 4px;
+  text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+.field.wide input[type="number"]{width:54px}
+.field input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--accent)}
+.field.checkbox{grid-template-columns:minmax(150px,1fr) 24px}
+.field.checkbox label{font-size:.8rem}
+.inline-pair{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.color-field{
+  display:grid;
+  grid-template-columns:minmax(130px,1fr) 44px 78px;
+  align-items:center;
+  gap:8px;
+}
+.color-field label{font-size:.78rem;color:#d9dee8;font-weight:760;line-height:1.1}
+.color-field input[type="color"]{width:42px;height:30px;padding:0;border:1px solid var(--border);border-radius:7px;background:#0e1218}
+.color-field code{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.rule-toolbar{display:grid;gap:9px}
+.rule-list{display:grid;gap:5px;max-height:38vh;overflow:auto;padding-right:3px;overscroll-behavior:contain;touch-action:pan-y}
+.rule-section{display:grid;gap:8px}
+.rule-section-header{
+  position:sticky;
+  top:-10px;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:7px 6px;
+  background:rgba(16,20,27,.96);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:9px;
+  color:#fff;
+  font-weight:850;
+  font-size:.78rem;
+}
+.rule-count{color:var(--muted);font-weight:760;font-size:.72rem;white-space:nowrap}
+.rule-row{
+  display:grid;
+  grid-template-columns:72px minmax(0,1fr) 46px;
+  align-items:center;
+  gap:7px;
+  min-height:30px;
+}
+.rule-row label{font-size:.74rem;font-weight:800;color:#dce2ec;white-space:nowrap}
+.rule-row input[type="range"]{width:100%;accent-color:var(--birth);touch-action:pan-y}
+.rule-row.death input[type="range"]{accent-color:var(--danger)}
+.rule-row input[type="number"]{
+  width:46px;
+  border:1px solid var(--border);
+  border-radius:7px;
+  background:#0e1218;
+  color:var(--text);
+  padding:4px 3px;
+  text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+.subtabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.subtab-button{
+  border:1px solid var(--border);
+  background:var(--btn);
+  color:var(--muted);
+  border-radius:8px;
+  min-height:34px;
+  font-weight:800;
+  cursor:pointer;
+}
+.subtab-button.active{background:#163963;border-color:#2f83ff;color:#fff}
+.subtab-button.death.active{background:#5a3500;border-color:#ff9a00;color:#fff}
+.neighbor-pane{display:none;gap:10px}
+.neighbor-pane.active{display:grid}
+.neighbor-grid{
+  display:grid;
+  grid-template-columns:repeat(9,1fr);
+  gap:2px;
+  touch-action:manipulation;
+}
+.neighbor-cell{
+  aspect-ratio:1/1;
+  min-width:0;
+  border:1px solid rgba(174,184,198,.35);
+  background:#0e1218;
+  color:transparent;
+  border-radius:3px;
+  cursor:pointer;
+}
+.neighbor-cell.active.birth{background:#0e2e63;border-color:#4c95ff;box-shadow:inset 0 0 0 1px rgba(98,163,255,.45)}
+.neighbor-cell.active.death{background:#6e4200;border-color:#ffad33;box-shadow:inset 0 0 0 1px rgba(255,188,92,.45)}
+.neighbor-cell.center{background:#f7f8fb;border-color:#f7f8fb;cursor:not-allowed;position:relative}
+.neighbor-cell.center::after{content:"•";color:#101010;position:absolute;inset:0;display:grid;place-items:center;font-weight:900}
+.neighbor-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.canvas-area{
+  flex:1 1 auto;
+  min-width:0;
+  min-height:0;
+  display:grid;
+  grid-template-rows:1fr auto;
+  gap:8px;
+  padding:10px;
+  overflow:hidden;
+}
+.canvas-frame{
+  min-width:0;
+  min-height:0;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  background:radial-gradient(circle at center,rgba(14,46,99,.12),transparent 32rem),#080a0f;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),0 12px 38px rgba(0,0,0,.3);
+  overflow:hidden;
+}
+#lifeCanvas{
+  display:block;
+  max-width:100%;
+  max-height:100%;
+  width:auto;
+  height:auto;
+  image-rendering:pixelated;
+  border-radius:8px;
+  border:1px solid rgba(174,184,198,.28);
+  background:#15151d;
+  cursor:crosshair;
+  touch-action:none;
+  user-select:none;
+}
+.canvas-meta{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  color:var(--muted);
+  font-size:.78rem;
+  min-height:28px;
+}
+.stats{
+  display:grid;
+  grid-template-columns:repeat(4,max-content);
+  gap:12px;
+  align-items:center;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.stat{display:grid;grid-template-columns:auto 9ch;gap:4px;align-items:baseline}
+.stat span:first-child{color:var(--quiet)}
+.stat span:last-child{text-align:right;color:#eef3fb}
+.hint{text-align:right;max-width:52ch}
+.hidden{display:none!important}
+@media (max-width:880px){
+  .app-header{align-items:flex-start;gap:8px}
+  .header-actions{flex-wrap:wrap;justify-content:flex-end}
+  .workspace{position:relative}
+  .control-panel{width:min(84vw,390px);max-width:84vw;min-width:280px;resize:none;z-index:5}
+  .control-panel.collapsed{width:48px!important;min-width:48px;max-width:48px}
+  .field{grid-template-columns:minmax(96px,.9fr) minmax(0,1.4fr) 46px}
+  .canvas-area{padding:8px}
+  .canvas-meta{align-items:flex-start;flex-direction:column}
+  .stats{grid-template-columns:repeat(2,max-content);gap:6px 10px}
+  .hint{text-align:left}
+}
+@media (max-width:520px){
+  .app-header{padding:8px}
+  .subtitle{display:none}
+  .control-panel{width:min(88vw,360px);min-width:260px;max-width:88vw}
+  .tabs{grid-template-columns:repeat(2,1fr)}
+  .grid-2,.button-row,.button-row.three,.inline-pair{grid-template-columns:1fr}
+  .field,.field.wide{grid-template-columns:1fr;align-items:start}
+  .field input[type="number"],.field.wide input[type="number"]{width:100%}
+  .rule-row{grid-template-columns:58px minmax(0,1fr) 44px}
+  .color-field{grid-template-columns:1fr 42px 72px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="title-block">
+      <h1>Probabilistic Cellular Automaton</h1>
+      <p class="subtitle">Tabbed controls, variable neighbor masks, zoom/pan, and birth/death probability rules.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn primary" id="startStop" type="button">Start</button>
+      <button class="btn" id="stepBtn" type="button">Step</button>
+      <button class="btn" id="randomizeBtn" type="button">Randomize</button>
+      <button class="btn" id="clearBtn" type="button">Clear</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="control-panel" id="controlPanel" aria-label="Controls">
+      <div class="panel-top">
+        <button class="icon-btn" id="panelToggle" type="button" title="Collapse or expand controls">☰</button>
+        <div class="panel-title">Controls</div>
+      </div>
+      <nav class="tabs" aria-label="Control tabs">
+        <button class="tab-button active" type="button" data-tab="simulate">Simulate</button>
+        <button class="tab-button" type="button" data-tab="settings">Settings</button>
+        <button class="tab-button" type="button" data-tab="rules">Rules</button>
+        <button class="tab-button" type="button" data-tab="neighbors">Neighbors</button>
+      </nav>
+      <div class="panel-scroll" id="panelScroll">
+        <div class="scroll-gutter" title="Drag here to scroll controls without touching sliders" aria-hidden="true"></div>
+        <section class="tab-panel active" id="tab-simulate">
+          <div class="card">
+            <h2 class="card-title">Run</h2>
+            <div class="button-row">
+              <button class="btn primary" id="startStopPanel" type="button">Start</button>
+              <button class="btn" id="stepPanel" type="button">Step</button>
+              <button class="btn" id="randomizePanel" type="button">Randomize</button>
+              <button class="btn" id="clearPanel" type="button">Clear</button>
+            </div>
+            <button class="btn full" id="resetViewBtn" type="button">Reset View</button>
+            <p class="help">Randomize preserves the current play/pause state. Step always pauses first.</p>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Timing</h2>
+            <div class="field wide">
+              <label for="fpsRange">Simulation FPS</label>
+              <input id="fpsRange" type="range" min="1" max="60" step="1" value="12">
+              <input id="fpsNumber" type="number" min="1" max="60" step="1" value="12" aria-label="Simulation FPS value">
+            </div>
+            <div class="field wide">
+              <label for="frameSkipRange">Frames to skip</label>
+              <input id="frameSkipRange" type="range" min="0" max="120" step="1" value="0">
+              <input id="frameSkipNumber" type="number" min="0" max="120" step="1" value="0" aria-label="Frames to skip value">
+            </div>
+            <p class="help">A skip value of 1 calculates every step but draws every other generation.</p>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Drawing</h2>
+            <div class="field checkbox">
+              <label for="lineMode">Line draw mode</label>
+              <input id="lineMode" type="checkbox">
+            </div>
+            <div class="field wide">
+              <label for="brushRange">Draw block size</label>
+              <input id="brushRange" type="range" min="1" max="51" step="2" value="1">
+              <input id="brushNumber" type="number" min="1" max="51" step="2" value="1" aria-label="Draw block size value">
+            </div>
+            <p class="help">Left-drag draws. With line mode on, drag strokes fill gaps between sampled cells. The first touched cell decides whether the stroke paints live or dead.</p>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-settings">
+          <div class="card">
+            <h2 class="card-title">Grid</h2>
+            <div class="field wide">
+              <label for="densityRange">Random density</label>
+              <input id="densityRange" type="range" min="0" max="100" step="1" value="30">
+              <input id="densityNumber" type="number" min="0" max="100" step="1" value="30" aria-label="Random density value">
+            </div>
+            <div class="field wide">
+              <label for="cellSizeRange">Cell size px</label>
+              <input id="cellSizeRange" type="range" min="1" max="20" step="1" value="10">
+              <input id="cellSizeNumber" type="number" min="1" max="20" step="1" value="10" aria-label="Cell size value">
+            </div>
+            <div class="field checkbox">
+              <label for="wrapEdges">Wrap edges</label>
+              <input id="wrapEdges" type="checkbox" checked>
+            </div>
+            <div class="field checkbox">
+              <label for="showCellBorders">Show cell borders</label>
+              <input id="showCellBorders" type="checkbox" checked>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Color gradients</h2>
+            <p class="help">Live cells use the death-rate gradient. Dead cells use the birth-rate gradient.</p>
+            <div class="color-field">
+              <label for="liveLowColor">Live, low death</label>
+              <input id="liveLowColor" type="color" value="#ffffff">
+              <code id="liveLowText">#ffffff</code>
+            </div>
+            <div class="color-field">
+              <label for="liveHighColor">Live, high death</label>
+              <input id="liveHighColor" type="color" value="#ff9a00">
+              <code id="liveHighText">#ff9a00</code>
+            </div>
+            <div class="color-field">
+              <label for="deadLowColor">Dead, low birth</label>
+              <input id="deadLowColor" type="color" value="#15151d">
+              <code id="deadLowText">#15151d</code>
+            </div>
+            <div class="color-field">
+              <label for="deadHighColor">Dead, high birth</label>
+              <input id="deadHighColor" type="color" value="#0e2e63">
+              <code id="deadHighText">#0e2e63</code>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-rules">
+          <div class="card rule-toolbar">
+            <h2 class="card-title">Global rule controls</h2>
+            <div class="inline-pair">
+              <div class="field wide">
+                <label for="ruleMinRange">Rule min</label>
+                <input id="ruleMinRange" type="range" min="0" max="100" step="1" value="0">
+                <input id="ruleMinNumber" type="number" min="0" max="100" step="1" value="0" aria-label="Rule minimum value">
+              </div>
+              <div class="field wide">
+                <label for="ruleMaxRange">Rule max</label>
+                <input id="ruleMaxRange" type="range" min="0" max="100" step="1" value="100">
+                <input id="ruleMaxNumber" type="number" min="0" max="100" step="1" value="100" aria-label="Rule maximum value">
+              </div>
+            </div>
+            <p class="help">The min/max range clamps every birth and death-rate control, including the two master sliders.</p>
+            <div class="field wide">
+              <label for="birthMasterRange">Birth master</label>
+              <input id="birthMasterRange" type="range" min="0" max="100" step="1" value="0">
+              <input id="birthMasterNumber" type="number" min="0" max="100" step="1" value="0" aria-label="Birth master value">
+            </div>
+            <div class="field wide">
+              <label for="deathMasterRange">Death master</label>
+              <input id="deathMasterRange" type="range" min="0" max="100" step="1" value="100">
+              <input id="deathMasterNumber" type="number" min="0" max="100" step="1" value="100" aria-label="Death master value">
+            </div>
+            <div class="button-row">
+              <button class="btn birth" id="applyBirthMaster" type="button">Apply Birth</button>
+              <button class="btn death" id="applyDeathMaster" type="button">Apply Death</button>
+              <button class="btn" id="randomRuleBtn" type="button">Random Rule</button>
+              <button class="btn" id="conwayBtn" type="button">Conway</button>
+            </div>
+          </div>
+
+          <div class="card rule-section">
+            <div class="rule-section-header">
+              <span>Birth rates</span>
+              <span class="rule-count" id="birthRuleCount">0–8 hits</span>
+            </div>
+            <div class="rule-list" id="birthRules"></div>
+          </div>
+
+          <div class="card rule-section">
+            <div class="rule-section-header">
+              <span>Death rates</span>
+              <span class="rule-count" id="deathRuleCount">0–8 hits</span>
+            </div>
+            <div class="rule-list" id="deathRules"></div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="tab-neighbors">
+          <div class="card">
+            <h2 class="card-title">Neighbor definitions</h2>
+            <p class="help">Each 9×9 grid defines which surrounding cells count as neighbors. The center cell is the current cell and cannot be selected. Each mask must keep at least one active neighbor.</p>
+            <div class="subtabs">
+              <button class="subtab-button active" type="button" data-neighbor-tab="birth">Birth neighbors</button>
+              <button class="subtab-button death" type="button" data-neighbor-tab="death">Death neighbors</button>
+            </div>
+          </div>
+
+          <div class="neighbor-pane active" id="neighbor-birth">
+            <div class="card">
+              <h2 class="card-title">Birth mask <span class="rule-count" id="birthNeighborCount">8 active</span></h2>
+              <div class="neighbor-grid" id="birthNeighborGrid" aria-label="Birth neighbor mask"></div>
+              <div class="neighbor-actions">
+                <button class="btn" type="button" data-mask-action="birth-default">Default</button>
+                <button class="btn" type="button" data-mask-action="birth-all">All</button>
+                <button class="btn" type="button" data-mask-action="birth-random">Random</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="neighbor-pane" id="neighbor-death">
+            <div class="card">
+              <h2 class="card-title">Death mask <span class="rule-count" id="deathNeighborCount">8 active</span></h2>
+              <div class="neighbor-grid" id="deathNeighborGrid" aria-label="Death neighbor mask"></div>
+              <div class="neighbor-actions">
+                <button class="btn" type="button" data-mask-action="death-default">Default</button>
+                <button class="btn" type="button" data-mask-action="death-all">All</button>
+                <button class="btn" type="button" data-mask-action="death-random">Random</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <section class="canvas-area">
+      <div class="canvas-frame">
+        <canvas id="lifeCanvas" width="700" height="500" aria-label="Interactive cellular automaton canvas"></canvas>
+      </div>
+      <div class="canvas-meta">
+        <div class="stats" aria-live="polite">
+          <div class="stat"><span>Gen</span><span id="generationStat">00000000</span></div>
+          <div class="stat"><span>Live</span><span id="liveStat">00000000</span></div>
+          <div class="stat"><span>Grid</span><span id="gridStat">070×050</span></div>
+          <div class="stat"><span>View</span><span id="zoomStat">1.00×</span></div>
+        </div>
+        <div class="hint">Draw: left drag / one finger. Pan: middle drag / two fingers. Zoom: wheel / pinch.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const WORLD_WIDTH = 700;
+  const WORLD_HEIGHT = 500;
+  const MASK_SIZE = 9;
+  const MASK_CENTER = 4;
+  const CENTER_INDEX = MASK_CENTER * MASK_SIZE + MASK_CENTER;
+
+  const canvas = document.getElementById('lifeCanvas');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  const $ = (id) => document.getElementById(id);
+
+  const els = {
+    controlPanel: $('controlPanel'),
+    panelToggle: $('panelToggle'),
+    startStop: $('startStop'),
+    startStopPanel: $('startStopPanel'),
+    stepBtn: $('stepBtn'),
+    stepPanel: $('stepPanel'),
+    randomizeBtn: $('randomizeBtn'),
+    randomizePanel: $('randomizePanel'),
+    clearBtn: $('clearBtn'),
+    clearPanel: $('clearPanel'),
+    resetViewBtn: $('resetViewBtn'),
+    randomRuleBtn: $('randomRuleBtn'),
+    conwayBtn: $('conwayBtn'),
+    applyBirthMaster: $('applyBirthMaster'),
+    applyDeathMaster: $('applyDeathMaster'),
+    fpsRange: $('fpsRange'),
+    fpsNumber: $('fpsNumber'),
+    frameSkipRange: $('frameSkipRange'),
+    frameSkipNumber: $('frameSkipNumber'),
+    densityRange: $('densityRange'),
+    densityNumber: $('densityNumber'),
+    cellSizeRange: $('cellSizeRange'),
+    cellSizeNumber: $('cellSizeNumber'),
+    brushRange: $('brushRange'),
+    brushNumber: $('brushNumber'),
+    lineMode: $('lineMode'),
+    wrapEdges: $('wrapEdges'),
+    showCellBorders: $('showCellBorders'),
+    ruleMinRange: $('ruleMinRange'),
+    ruleMinNumber: $('ruleMinNumber'),
+    ruleMaxRange: $('ruleMaxRange'),
+    ruleMaxNumber: $('ruleMaxNumber'),
+    birthMasterRange: $('birthMasterRange'),
+    birthMasterNumber: $('birthMasterNumber'),
+    deathMasterRange: $('deathMasterRange'),
+    deathMasterNumber: $('deathMasterNumber'),
+    birthRules: $('birthRules'),
+    deathRules: $('deathRules'),
+    birthRuleCount: $('birthRuleCount'),
+    deathRuleCount: $('deathRuleCount'),
+    birthNeighborGrid: $('birthNeighborGrid'),
+    deathNeighborGrid: $('deathNeighborGrid'),
+    birthNeighborCount: $('birthNeighborCount'),
+    deathNeighborCount: $('deathNeighborCount'),
+    generationStat: $('generationStat'),
+    liveStat: $('liveStat'),
+    gridStat: $('gridStat'),
+    zoomStat: $('zoomStat'),
+    liveLowColor: $('liveLowColor'),
+    liveHighColor: $('liveHighColor'),
+    deadLowColor: $('deadLowColor'),
+    deadHighColor: $('deadHighColor'),
+    liveLowText: $('liveLowText'),
+    liveHighText: $('liveHighText'),
+    deadLowText: $('deadLowText'),
+    deadHighText: $('deadHighText')
+  };
+
+  const state = {
+    isRunning: false,
+    fps: 12,
+    frameSkip: 0,
+    skippedSinceDraw: 0,
+    randomDensity: 30,
+    cellSize: 10,
+    brushSize: 1,
+    rows: 50,
+    cols: 70,
+    grid: new Uint8Array(70 * 50),
+    nextGrid: new Uint8Array(70 * 50),
+    generation: 0,
+    liveCount: 0,
+    wrapEdges: true,
+    showCellBorders: true,
+    ruleMin: 0,
+    ruleMax: 100,
+    birthMask: makeDefaultMask(),
+    deathMask: makeDefaultMask(),
+    birthOffsets: [],
+    deathOffsets: [],
+    birthRates: [],
+    deathRates: [],
+    liveLowColor: '#ffffff',
+    liveHighColor: '#ff9a00',
+    deadLowColor: '#15151d',
+    deadHighColor: '#0e2e63',
+    liveLowRGB: [255,255,255],
+    liveHighRGB: [255,154,0],
+    deadLowRGB: [21,21,29],
+    deadHighRGB: [14,46,99],
+    viewZoom: 1,
+    viewOffsetX: 0,
+    viewOffsetY: 0
+  };
+
+  let rafId = null;
+  let lastFrameTime = 0;
+  let accumulatedMs = 0;
+  let drawing = false;
+  let panning = false;
+  let activePointers = new Map();
+  let pinchState = null;
+  let strokeState = 1;
+  let lastPaintCell = null;
+  let lastPanPoint = null;
+
+  function clamp(value, min, max) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return min;
+    return Math.min(max, Math.max(min, n));
+  }
+
+  function clampInt(value, min, max) {
+    return Math.round(clamp(value, min, max));
+  }
+
+  function padded(n, width) {
+    const text = String(Math.max(0, Math.floor(n)));
+    if (text.length >= width) return text;
+    return '0'.repeat(width - text.length) + text;
+  }
+
+  function hexToRgb(hex) {
+    const clean = String(hex || '').replace('#','').trim();
+    const value = /^[0-9a-f]{6}$/i.test(clean) ? clean : '000000';
+    return [
+      parseInt(value.slice(0, 2), 16),
+      parseInt(value.slice(2, 4), 16),
+      parseInt(value.slice(4, 6), 16)
+    ];
+  }
+
+  function rgbToCss(rgb) {
+    return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+  }
+
+  function mixRgb(a, b, t) {
+    const k = clamp(t, 0, 1);
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * k),
+      Math.round(a[1] + (b[1] - a[1]) * k),
+      Math.round(a[2] + (b[2] - a[2]) * k)
+    ];
+  }
+
+  function makeDefaultMask() {
+    const mask = new Array(MASK_SIZE * MASK_SIZE).fill(false);
+    for (let r = 0; r < MASK_SIZE; r++) {
+      for (let c = 0; c < MASK_SIZE; c++) {
+        const dr = r - MASK_CENTER;
+        const dc = c - MASK_CENTER;
+        const index = r * MASK_SIZE + c;
+        if (index !== CENTER_INDEX && Math.abs(dr) <= 1 && Math.abs(dc) <= 1) {
+          mask[index] = true;
+        }
+      }
+    }
+    return mask;
+  }
+
+  function maskToOffsets(mask) {
+    const offsets = [];
+    for (let r = 0; r < MASK_SIZE; r++) {
+      for (let c = 0; c < MASK_SIZE; c++) {
+        const index = r * MASK_SIZE + c;
+        if (index === CENTER_INDEX || !mask[index]) continue;
+        offsets.push({ dr: r - MASK_CENTER, dc: c - MASK_CENTER });
+      }
+    }
+    return offsets;
+  }
+
+  function activeMaskCount(mask) {
+    let count = 0;
+    for (let i = 0; i < mask.length; i++) {
+      if (i !== CENTER_INDEX && mask[i]) count++;
+    }
+    return count;
+  }
+
+  function initializeGrid() {
+    state.cols = Math.floor(WORLD_WIDTH / state.cellSize);
+    state.rows = Math.floor(WORLD_HEIGHT / state.cellSize);
+    state.grid = new Uint8Array(state.rows * state.cols);
+    state.nextGrid = new Uint8Array(state.rows * state.cols);
+    state.generation = 0;
+    randomizeGrid(false);
+  }
+
+  function resampleGrid(oldGrid, oldRows, oldCols, newRows, newCols) {
+    const next = new Uint8Array(newRows * newCols);
+    for (let r = 0; r < newRows; r++) {
+      const oldR = Math.min(oldRows - 1, Math.floor((r + 0.5) * oldRows / newRows));
+      for (let c = 0; c < newCols; c++) {
+        const oldC = Math.min(oldCols - 1, Math.floor((c + 0.5) * oldCols / newCols));
+        next[r * newCols + c] = oldGrid[oldR * oldCols + oldC];
+      }
+    }
+    return next;
+  }
+
+  function setCellSize(value) {
+    const nextSize = clampInt(value, 1, 20);
+    if (nextSize === state.cellSize) return;
+    const oldGrid = state.grid;
+    const oldRows = state.rows;
+    const oldCols = state.cols;
+    state.cellSize = nextSize;
+    state.cols = Math.floor(WORLD_WIDTH / state.cellSize);
+    state.rows = Math.floor(WORLD_HEIGHT / state.cellSize);
+    state.grid = resampleGrid(oldGrid, oldRows, oldCols, state.rows, state.cols);
+    state.nextGrid = new Uint8Array(state.rows * state.cols);
+    countLiveCells();
+    clampView();
+    updateStats();
+    draw();
+  }
+
+  function countLiveCells() {
+    let total = 0;
+    for (let i = 0; i < state.grid.length; i++) total += state.grid[i];
+    state.liveCount = total;
+    return total;
+  }
+
+  function randomizeGrid(shouldDraw = true) {
+    const threshold = state.randomDensity / 100;
+    let live = 0;
+    for (let i = 0; i < state.grid.length; i++) {
+      const value = Math.random() < threshold ? 1 : 0;
+      state.grid[i] = value;
+      live += value;
+    }
+    state.liveCount = live;
+    state.generation = 0;
+    state.skippedSinceDraw = 0;
+    if (shouldDraw) {
+      updateStats();
+      draw();
+    }
+  }
+
+  function clearGrid() {
+    state.grid.fill(0);
+    state.nextGrid.fill(0);
+    state.liveCount = 0;
+    state.generation = 0;
+    state.skippedSinceDraw = 0;
+    updateStats();
+    draw();
+  }
+
+  function rebuildOffsetsAndRates(kind, resetConway = false) {
+    if (kind === 'birth') {
+      state.birthOffsets = maskToOffsets(state.birthMask);
+      state.birthRates = resizeRates(state.birthRates, state.birthOffsets.length, 'birth', resetConway);
+    } else {
+      state.deathOffsets = maskToOffsets(state.deathMask);
+      state.deathRates = resizeRates(state.deathRates, state.deathOffsets.length, 'death', resetConway);
+    }
+  }
+
+  function resizeRates(existing, neighborCount, kind, conwayDefaults) {
+    const length = neighborCount + 1;
+    const next = new Array(length);
+    for (let i = 0; i < length; i++) {
+      if (conwayDefaults) {
+        if (kind === 'birth') next[i] = i === 3 ? 100 : 0;
+        else next[i] = (i === 2 || i === 3) ? 0 : 100;
+      } else if (existing && Number.isFinite(existing[i])) {
+        next[i] = existing[i];
+      } else if (existing && existing.length) {
+        next[i] = existing[existing.length - 1];
+      } else {
+        next[i] = kind === 'birth' ? 0 : 100;
+      }
+      next[i] = clampRuleValue(next[i]);
+    }
+    return next;
+  }
+
+  function clampRuleValue(value) {
+    return clampInt(value, state.ruleMin, state.ruleMax);
+  }
+
+  function setRunning(running) {
+    state.isRunning = Boolean(running);
+    for (const btn of [els.startStop, els.startStopPanel]) {
+      btn.textContent = state.isRunning ? 'Pause' : 'Start';
+      btn.classList.toggle('running', state.isRunning);
+    }
+    if (state.isRunning) {
+      lastFrameTime = performance.now();
+      accumulatedMs = 0;
+      if (rafId === null) rafId = requestAnimationFrame(loop);
+    } else if (rafId !== null) {
+      cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+  }
+
+  function toggleRunning() {
+    setRunning(!state.isRunning);
+  }
+
+  function loop(time) {
+    if (!state.isRunning) {
+      rafId = null;
+      return;
+    }
+
+    const elapsed = Math.min(250, time - lastFrameTime);
+    lastFrameTime = time;
+    accumulatedMs += elapsed;
+    const frameMs = 1000 / state.fps;
+    let didDraw = false;
+    let safety = 0;
+
+    while (accumulatedMs >= frameMs && safety < 8) {
+      computeNextGeneration();
+      accumulatedMs -= frameMs;
+      safety++;
+
+      if (state.skippedSinceDraw >= state.frameSkip) {
+        didDraw = true;
+        state.skippedSinceDraw = 0;
+      } else {
+        state.skippedSinceDraw++;
+      }
+    }
+
+    if (didDraw) {
+      updateStats();
+      draw();
+    }
+
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function countNeighbors(row, col, offsets) {
+    let count = 0;
+    const cols = state.cols;
+    const rows = state.rows;
+    const grid = state.grid;
+
+    if (state.wrapEdges) {
+      for (let i = 0; i < offsets.length; i++) {
+        let rr = row + offsets[i].dr;
+        let cc = col + offsets[i].dc;
+        if (rr < 0) rr += rows;
+        else if (rr >= rows) rr -= rows;
+        if (cc < 0) cc += cols;
+        else if (cc >= cols) cc -= cols;
+        count += grid[rr * cols + cc];
+      }
+    } else {
+      for (let i = 0; i < offsets.length; i++) {
+        const rr = row + offsets[i].dr;
+        const cc = col + offsets[i].dc;
+        if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
+          count += grid[rr * cols + cc];
+        }
+      }
+    }
+
+    return count;
+  }
+
+  function computeNextGeneration() {
+    const rows = state.rows;
+    const cols = state.cols;
+    const grid = state.grid;
+    const next = state.nextGrid;
+    let live = 0;
+
+    for (let r = 0; r < rows; r++) {
+      const base = r * cols;
+      for (let c = 0; c < cols; c++) {
+        const index = base + c;
+        let value;
+        if (grid[index] === 1) {
+          const count = countNeighbors(r, c, state.deathOffsets);
+          const deathRate = (state.deathRates[count] || 0) / 100;
+          value = Math.random() < deathRate ? 0 : 1;
+        } else {
+          const count = countNeighbors(r, c, state.birthOffsets);
+          const birthRate = (state.birthRates[count] || 0) / 100;
+          value = Math.random() < birthRate ? 1 : 0;
+        }
+        next[index] = value;
+        live += value;
+      }
+    }
+
+    state.grid = next;
+    state.nextGrid = grid;
+    state.liveCount = live;
+    state.generation += 1;
+  }
+
+  function probabilityForCell(row, col, isAlive) {
+    if (isAlive) {
+      const count = countNeighbors(row, col, state.deathOffsets);
+      return (state.deathRates[count] || 0) / 100;
+    }
+    const count = countNeighbors(row, col, state.birthOffsets);
+    return (state.birthRates[count] || 0) / 100;
+  }
+
+  function draw() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = state.deadLowColor;
+    ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+    ctx.save();
+    ctx.scale(state.viewZoom, state.viewZoom);
+    ctx.translate(-state.viewOffsetX, -state.viewOffsetY);
+
+    const cs = state.cellSize;
+    const visibleLeft = state.viewOffsetX;
+    const visibleTop = state.viewOffsetY;
+    const visibleRight = state.viewOffsetX + WORLD_WIDTH / state.viewZoom;
+    const visibleBottom = state.viewOffsetY + WORLD_HEIGHT / state.viewZoom;
+    const startC = clampInt(Math.floor(visibleLeft / cs) - 1, 0, state.cols - 1);
+    const endC = clampInt(Math.ceil(visibleRight / cs) + 1, 0, state.cols - 1);
+    const startR = clampInt(Math.floor(visibleTop / cs) - 1, 0, state.rows - 1);
+    const endR = clampInt(Math.ceil(visibleBottom / cs) + 1, 0, state.rows - 1);
+
+    const gap = state.showCellBorders && cs * state.viewZoom >= 5 ? 1 / state.viewZoom : 0;
+
+    for (let r = startR; r <= endR; r++) {
+      for (let c = startC; c <= endC; c++) {
+        const index = r * state.cols + c;
+        const alive = state.grid[index] === 1;
+        const chance = probabilityForCell(r, c, alive);
+        const rgb = alive
+          ? mixRgb(state.liveLowRGB, state.liveHighRGB, chance)
+          : mixRgb(state.deadLowRGB, state.deadHighRGB, chance);
+        ctx.fillStyle = rgbToCss(rgb);
+        ctx.fillRect(c * cs, r * cs, Math.max(1 / state.viewZoom, cs - gap), Math.max(1 / state.viewZoom, cs - gap));
+      }
+    }
+
+    ctx.restore();
+    updateStats();
+  }
+
+  function updateStats() {
+    els.generationStat.textContent = padded(state.generation, 8);
+    els.liveStat.textContent = padded(state.liveCount, 8);
+    els.gridStat.textContent = `${String(state.cols).padStart(3, '0')}×${String(state.rows).padStart(3, '0')}`;
+    els.zoomStat.textContent = `${state.viewZoom.toFixed(2)}×`;
+  }
+
+  function pairControls(range, number, min, max, initial, onChange) {
+    function commit(source) {
+      const raw = source === range ? range.value : number.value;
+      let value = clampInt(raw, min(), max());
+      range.min = String(min());
+      number.min = String(min());
+      range.max = String(max());
+      number.max = String(max());
+      range.value = String(value);
+      number.value = String(value);
+      onChange(value);
+    }
+    range.value = String(initial);
+    number.value = String(initial);
+    range.addEventListener('input', () => commit(range));
+    number.addEventListener('input', () => commit(number));
+    number.addEventListener('blur', () => commit(number));
+    commit(range);
+    return { commit: () => commit(range) };
+  }
+
+  function setupBasicControls() {
+    pairControls(els.fpsRange, els.fpsNumber, () => 1, () => 60, state.fps, (v) => { state.fps = v; });
+    pairControls(els.frameSkipRange, els.frameSkipNumber, () => 0, () => 120, state.frameSkip, (v) => { state.frameSkip = v; });
+    pairControls(els.densityRange, els.densityNumber, () => 0, () => 100, state.randomDensity, (v) => { state.randomDensity = v; });
+    pairControls(els.cellSizeRange, els.cellSizeNumber, () => 1, () => 20, state.cellSize, (v) => { setCellSize(v); });
+    pairControls(els.brushRange, els.brushNumber, () => 1, () => 51, state.brushSize, (v) => {
+      state.brushSize = v % 2 === 0 ? v + 1 : v;
+      els.brushRange.value = String(state.brushSize);
+      els.brushNumber.value = String(state.brushSize);
+    });
+
+    pairControls(els.ruleMinRange, els.ruleMinNumber, () => 0, () => state.ruleMax, state.ruleMin, (v) => {
+      state.ruleMin = v;
+      enforceRuleRange();
+    });
+    pairControls(els.ruleMaxRange, els.ruleMaxNumber, () => state.ruleMin, () => 100, state.ruleMax, (v) => {
+      state.ruleMax = v;
+      enforceRuleRange();
+    });
+    pairControls(els.birthMasterRange, els.birthMasterNumber, () => state.ruleMin, () => state.ruleMax, 0, () => {});
+    pairControls(els.deathMasterRange, els.deathMasterNumber, () => state.ruleMin, () => state.ruleMax, 100, () => {});
+
+    els.wrapEdges.addEventListener('change', () => { state.wrapEdges = els.wrapEdges.checked; draw(); });
+    els.showCellBorders.addEventListener('change', () => { state.showCellBorders = els.showCellBorders.checked; draw(); });
+    els.lineMode.addEventListener('change', () => {});
+
+    for (const [input, textId, key, rgbKey] of [
+      [els.liveLowColor, 'liveLowText', 'liveLowColor', 'liveLowRGB'],
+      [els.liveHighColor, 'liveHighText', 'liveHighColor', 'liveHighRGB'],
+      [els.deadLowColor, 'deadLowText', 'deadLowColor', 'deadLowRGB'],
+      [els.deadHighColor, 'deadHighText', 'deadHighColor', 'deadHighRGB']
+    ]) {
+      input.addEventListener('input', () => {
+        state[key] = input.value.toLowerCase();
+        state[rgbKey] = hexToRgb(state[key]);
+        $(textId).textContent = state[key];
+        draw();
+      });
+    }
+  }
+
+  function enforceRuleRange() {
+    els.ruleMinRange.max = els.ruleMinNumber.max = String(state.ruleMax);
+    els.ruleMaxRange.min = els.ruleMaxNumber.min = String(state.ruleMin);
+    state.birthRates = state.birthRates.map(clampRuleValue);
+    state.deathRates = state.deathRates.map(clampRuleValue);
+    const birthMaster = clampRuleValue(els.birthMasterRange.value);
+    const deathMaster = clampRuleValue(els.deathMasterRange.value);
+    for (const el of [els.birthMasterRange, els.birthMasterNumber, els.deathMasterRange, els.deathMasterNumber]) {
+      el.min = String(state.ruleMin);
+      el.max = String(state.ruleMax);
+    }
+    els.birthMasterRange.value = els.birthMasterNumber.value = String(birthMaster);
+    els.deathMasterRange.value = els.deathMasterNumber.value = String(deathMaster);
+    renderRules('birth');
+    renderRules('death');
+    draw();
+  }
+
+  function renderRules(kind) {
+    const isBirth = kind === 'birth';
+    const rates = isBirth ? state.birthRates : state.deathRates;
+    const container = isBirth ? els.birthRules : els.deathRules;
+    const countLabel = isBirth ? els.birthRuleCount : els.deathRuleCount;
+    const max = rates.length - 1;
+    countLabel.textContent = `0–${max} hits`;
+
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < rates.length; i++) {
+      const row = document.createElement('div');
+      row.className = `rule-row ${isBirth ? 'birth' : 'death'}`;
+
+      const label = document.createElement('label');
+      label.htmlFor = `${kind}-rate-${i}`;
+      label.textContent = `Count ${i}`;
+
+      const range = document.createElement('input');
+      range.type = 'range';
+      range.id = `${kind}-rate-${i}`;
+      range.min = String(state.ruleMin);
+      range.max = String(state.ruleMax);
+      range.step = '1';
+      range.value = String(rates[i]);
+      range.dataset.kind = kind;
+      range.dataset.index = String(i);
+
+      const number = document.createElement('input');
+      number.type = 'number';
+      number.min = String(state.ruleMin);
+      number.max = String(state.ruleMax);
+      number.step = '1';
+      number.value = String(rates[i]);
+      number.dataset.kind = kind;
+      number.dataset.index = String(i);
+      number.setAttribute('aria-label', `${kind} rate for count ${i}`);
+
+      row.append(label, range, number);
+      fragment.append(row);
+    }
+
+    container.replaceChildren(fragment);
+  }
+
+  function handleRuleInput(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const kind = target.dataset.kind;
+    if (kind !== 'birth' && kind !== 'death') return;
+    const index = Number(target.dataset.index);
+    if (!Number.isInteger(index)) return;
+    const value = clampRuleValue(target.value);
+    const rates = kind === 'birth' ? state.birthRates : state.deathRates;
+    rates[index] = value;
+
+    const row = target.closest('.rule-row');
+    if (row) {
+      for (const input of row.querySelectorAll('input')) input.value = String(value);
+    }
+    draw();
+  }
+
+  function applyMaster(kind) {
+    const isBirth = kind === 'birth';
+    const value = clampRuleValue(isBirth ? els.birthMasterRange.value : els.deathMasterRange.value);
+    const rates = isBirth ? state.birthRates : state.deathRates;
+    rates.fill(value);
+    renderRules(kind);
+    draw();
+  }
+
+  function randomizeRuleRates() {
+    for (let i = 0; i < state.birthRates.length; i++) {
+      state.birthRates[i] = clampRuleValue(Math.round(state.ruleMin + Math.random() * (state.ruleMax - state.ruleMin)));
+    }
+    for (let i = 0; i < state.deathRates.length; i++) {
+      state.deathRates[i] = clampRuleValue(Math.round(state.ruleMin + Math.random() * (state.ruleMax - state.ruleMin)));
+    }
+    renderRules('birth');
+    renderRules('death');
+    draw();
+  }
+
+  function applyConwayDefaults() {
+    state.birthMask = makeDefaultMask();
+    state.deathMask = makeDefaultMask();
+    rebuildOffsetsAndRates('birth', true);
+    rebuildOffsetsAndRates('death', true);
+    renderNeighborGrid('birth');
+    renderNeighborGrid('death');
+    renderRules('birth');
+    renderRules('death');
+    draw();
+  }
+
+  function renderNeighborGrid(kind) {
+    const isBirth = kind === 'birth';
+    const mask = isBirth ? state.birthMask : state.deathMask;
+    const grid = isBirth ? els.birthNeighborGrid : els.deathNeighborGrid;
+    const countEl = isBirth ? els.birthNeighborCount : els.deathNeighborCount;
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < MASK_SIZE * MASK_SIZE; i++) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'neighbor-cell';
+      btn.dataset.kind = kind;
+      btn.dataset.index = String(i);
+      btn.setAttribute('aria-label', `${kind} neighbor cell ${i}`);
+      if (i === CENTER_INDEX) {
+        btn.classList.add('center');
+        btn.disabled = true;
+      } else if (mask[i]) {
+        btn.classList.add('active', isBirth ? 'birth' : 'death');
+        btn.setAttribute('aria-pressed', 'true');
+      } else {
+        btn.setAttribute('aria-pressed', 'false');
+      }
+      fragment.append(btn);
+    }
+
+    grid.replaceChildren(fragment);
+    countEl.textContent = `${activeMaskCount(mask)} active`;
+  }
+
+  function toggleNeighborCell(kind, index) {
+    if (index === CENTER_INDEX) return;
+    const mask = kind === 'birth' ? state.birthMask : state.deathMask;
+    if (mask[index] && activeMaskCount(mask) <= 1) return;
+    mask[index] = !mask[index];
+    rebuildOffsetsAndRates(kind, false);
+    renderNeighborGrid(kind);
+    renderRules(kind);
+    draw();
+  }
+
+  function setMask(kind, mode) {
+    const mask = kind === 'birth' ? state.birthMask : state.deathMask;
+    if (mode === 'default') {
+      const next = makeDefaultMask();
+      for (let i = 0; i < mask.length; i++) mask[i] = next[i];
+    } else if (mode === 'all') {
+      for (let i = 0; i < mask.length; i++) mask[i] = i !== CENTER_INDEX;
+    } else if (mode === 'random') {
+      let count = 0;
+      for (let i = 0; i < mask.length; i++) {
+        mask[i] = i !== CENTER_INDEX && Math.random() < 0.35;
+        if (mask[i]) count++;
+      }
+      if (count === 0) mask[CENTER_INDEX - 1] = true;
+    }
+    rebuildOffsetsAndRates(kind, false);
+    renderNeighborGrid(kind);
+    renderRules(kind);
+    draw();
+  }
+
+  function setupTabs() {
+    document.querySelectorAll('.tab-button').forEach((button) => {
+      button.addEventListener('click', () => {
+        const tab = button.dataset.tab;
+        document.querySelectorAll('.tab-button').forEach((b) => b.classList.toggle('active', b === button));
+        document.querySelectorAll('.tab-panel').forEach((panel) => panel.classList.toggle('active', panel.id === `tab-${tab}`));
+      });
+    });
+
+    document.querySelectorAll('.subtab-button').forEach((button) => {
+      button.addEventListener('click', () => {
+        const tab = button.dataset.neighborTab;
+        document.querySelectorAll('.subtab-button').forEach((b) => b.classList.toggle('active', b === button));
+        document.querySelectorAll('.neighbor-pane').forEach((panel) => panel.classList.toggle('active', panel.id === `neighbor-${tab}`));
+      });
+    });
+  }
+
+  function setupButtons() {
+    for (const btn of [els.startStop, els.startStopPanel]) btn.addEventListener('click', toggleRunning);
+    for (const btn of [els.stepBtn, els.stepPanel]) btn.addEventListener('click', () => {
+      setRunning(false);
+      computeNextGeneration();
+      updateStats();
+      draw();
+    });
+    for (const btn of [els.randomizeBtn, els.randomizePanel]) btn.addEventListener('click', () => {
+      const wasRunning = state.isRunning;
+      randomizeGrid(true);
+      if (wasRunning) setRunning(true);
+    });
+    for (const btn of [els.clearBtn, els.clearPanel]) btn.addEventListener('click', () => {
+      setRunning(false);
+      clearGrid();
+    });
+    els.panelToggle.addEventListener('click', () => {
+      els.controlPanel.classList.toggle('collapsed');
+      window.setTimeout(draw, 60);
+    });
+    els.resetViewBtn.addEventListener('click', () => {
+      state.viewZoom = 1;
+      state.viewOffsetX = 0;
+      state.viewOffsetY = 0;
+      draw();
+    });
+    els.applyBirthMaster.addEventListener('click', () => applyMaster('birth'));
+    els.applyDeathMaster.addEventListener('click', () => applyMaster('death'));
+    els.randomRuleBtn.addEventListener('click', randomizeRuleRates);
+    els.conwayBtn.addEventListener('click', applyConwayDefaults);
+
+    document.querySelectorAll('[data-mask-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const [kind, mode] = button.dataset.maskAction.split('-');
+        setMask(kind, mode);
+      });
+    });
+  }
+
+  function setupRuleEvents() {
+    els.birthRules.addEventListener('input', handleRuleInput);
+    els.birthRules.addEventListener('change', handleRuleInput);
+    els.deathRules.addEventListener('input', handleRuleInput);
+    els.deathRules.addEventListener('change', handleRuleInput);
+    els.birthNeighborGrid.addEventListener('click', (event) => {
+      const target = event.target.closest('.neighbor-cell');
+      if (!target || target.disabled) return;
+      toggleNeighborCell('birth', Number(target.dataset.index));
+    });
+    els.deathNeighborGrid.addEventListener('click', (event) => {
+      const target = event.target.closest('.neighbor-cell');
+      if (!target || target.disabled) return;
+      toggleNeighborCell('death', Number(target.dataset.index));
+    });
+  }
+
+  function clampView() {
+    state.viewZoom = clamp(state.viewZoom, 1, 64);
+    const viewW = WORLD_WIDTH / state.viewZoom;
+    const viewH = WORLD_HEIGHT / state.viewZoom;
+    state.viewOffsetX = clamp(state.viewOffsetX, 0, Math.max(0, WORLD_WIDTH - viewW));
+    state.viewOffsetY = clamp(state.viewOffsetY, 0, Math.max(0, WORLD_HEIGHT - viewH));
+  }
+
+  function canvasPointFromClient(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left) * WORLD_WIDTH / rect.width,
+      y: (clientY - rect.top) * WORLD_HEIGHT / rect.height
+    };
+  }
+
+  function worldFromClient(clientX, clientY) {
+    const p = canvasPointFromClient(clientX, clientY);
+    return {
+      x: state.viewOffsetX + p.x / state.viewZoom,
+      y: state.viewOffsetY + p.y / state.viewZoom,
+      canvasX: p.x,
+      canvasY: p.y
+    };
+  }
+
+  function cellFromWorld(world) {
+    return {
+      c: clampInt(Math.floor(world.x / state.cellSize), 0, state.cols - 1),
+      r: clampInt(Math.floor(world.y / state.cellSize), 0, state.rows - 1)
+    };
+  }
+
+  function applyBrush(c, r, value) {
+    const radius = Math.floor(state.brushSize / 2);
+    let changed = false;
+    for (let rr = r - radius; rr <= r + radius; rr++) {
+      if (rr < 0 || rr >= state.rows) continue;
+      for (let cc = c - radius; cc <= c + radius; cc++) {
+        if (cc < 0 || cc >= state.cols) continue;
+        const index = rr * state.cols + cc;
+        if (state.grid[index] !== value) {
+          state.grid[index] = value;
+          changed = true;
+        }
+      }
+    }
+    return changed;
+  }
+
+  function drawLineCells(a, b, value) {
+    const dx = b.c - a.c;
+    const dy = b.r - a.r;
+    const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
+    let changed = false;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const c = Math.round(a.c + dx * t);
+      const r = Math.round(a.r + dy * t);
+      changed = applyBrush(c, r, value) || changed;
+    }
+    return changed;
+  }
+
+  function startDrawing(pointerEvent) {
+    const world = worldFromClient(pointerEvent.clientX, pointerEvent.clientY);
+    const cell = cellFromWorld(world);
+    const index = cell.r * state.cols + cell.c;
+    strokeState = state.grid[index] === 1 ? 0 : 1;
+    drawing = true;
+    lastPaintCell = cell;
+    if (applyBrush(cell.c, cell.r, strokeState)) {
+      countLiveCells();
+      updateStats();
+      draw();
+    }
+  }
+
+  function continueDrawing(pointerEvent) {
+    if (!drawing) return;
+    const world = worldFromClient(pointerEvent.clientX, pointerEvent.clientY);
+    const cell = cellFromWorld(world);
+    let changed;
+    if (els.lineMode.checked && lastPaintCell) {
+      changed = drawLineCells(lastPaintCell, cell, strokeState);
+    } else {
+      changed = applyBrush(cell.c, cell.r, strokeState);
+    }
+    lastPaintCell = cell;
+    if (changed) {
+      countLiveCells();
+      updateStats();
+      draw();
+    }
+  }
+
+  function zoomAt(canvasX, canvasY, factor) {
+    const beforeX = state.viewOffsetX + canvasX / state.viewZoom;
+    const beforeY = state.viewOffsetY + canvasY / state.viewZoom;
+    state.viewZoom = clamp(state.viewZoom * factor, 1, 64);
+    state.viewOffsetX = beforeX - canvasX / state.viewZoom;
+    state.viewOffsetY = beforeY - canvasY / state.viewZoom;
+    clampView();
+    draw();
+  }
+
+  function panByCanvasDelta(dx, dy) {
+    state.viewOffsetX -= dx / state.viewZoom;
+    state.viewOffsetY -= dy / state.viewZoom;
+    clampView();
+    draw();
+  }
+
+  function getTwoPointerInfo() {
+    const values = Array.from(activePointers.values());
+    if (values.length < 2) return null;
+    const a = values[0];
+    const b = values[1];
+    const pa = canvasPointFromClient(a.clientX, a.clientY);
+    const pb = canvasPointFromClient(b.clientX, b.clientY);
+    const cx = (pa.x + pb.x) / 2;
+    const cy = (pa.y + pb.y) / 2;
+    const dx = pb.x - pa.x;
+    const dy = pb.y - pa.y;
+    return { cx, cy, distance: Math.hypot(dx, dy) || 1 };
+  }
+
+  function beginPinch() {
+    const info = getTwoPointerInfo();
+    if (!info) return;
+    drawing = false;
+    lastPaintCell = null;
+    pinchState = {
+      startDistance: info.distance,
+      startCx: info.cx,
+      startCy: info.cy,
+      startZoom: state.viewZoom,
+      startOffsetX: state.viewOffsetX,
+      startOffsetY: state.viewOffsetY,
+      worldAtCenterX: state.viewOffsetX + info.cx / state.viewZoom,
+      worldAtCenterY: state.viewOffsetY + info.cy / state.viewZoom
+    };
+  }
+
+  function updatePinch() {
+    const info = getTwoPointerInfo();
+    if (!info || !pinchState) return;
+    const scale = info.distance / pinchState.startDistance;
+    state.viewZoom = clamp(pinchState.startZoom * scale, 1, 64);
+    state.viewOffsetX = pinchState.worldAtCenterX - info.cx / state.viewZoom;
+    state.viewOffsetY = pinchState.worldAtCenterY - info.cy / state.viewZoom;
+    clampView();
+    draw();
+  }
+
+  function setupCanvasInteractions() {
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
+    canvas.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      const p = canvasPointFromClient(event.clientX, event.clientY);
+      const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+      zoomAt(p.x, p.y, factor);
+    }, { passive: false });
+
+    canvas.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      canvas.setPointerCapture(event.pointerId);
+      activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY, pointerType: event.pointerType });
+
+      if (event.pointerType === 'touch' && activePointers.size >= 2) {
+        beginPinch();
+        return;
+      }
+
+      if (event.button === 1) {
+        panning = true;
+        drawing = false;
+        lastPanPoint = canvasPointFromClient(event.clientX, event.clientY);
+        canvas.style.cursor = 'grabbing';
+        return;
+      }
+
+      if (event.button === 0 || event.pointerType === 'touch' || event.pointerType === 'pen') {
+        startDrawing(event);
+      }
+    });
+
+    canvas.addEventListener('pointermove', (event) => {
+      if (activePointers.has(event.pointerId)) {
+        activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY, pointerType: event.pointerType });
+      }
+
+      if (pinchState && activePointers.size >= 2) {
+        event.preventDefault();
+        updatePinch();
+        return;
+      }
+
+      if (panning && lastPanPoint) {
+        event.preventDefault();
+        const p = canvasPointFromClient(event.clientX, event.clientY);
+        panByCanvasDelta(p.x - lastPanPoint.x, p.y - lastPanPoint.y);
+        lastPanPoint = p;
+        return;
+      }
+
+      if (drawing) {
+        event.preventDefault();
+        continueDrawing(event);
+      }
+    });
+
+    function endPointer(event) {
+      if (activePointers.has(event.pointerId)) activePointers.delete(event.pointerId);
+      if (activePointers.size < 2) pinchState = null;
+      if (activePointers.size === 0) {
+        drawing = false;
+        panning = false;
+        lastPaintCell = null;
+        lastPanPoint = null;
+        canvas.style.cursor = 'crosshair';
+      }
+    }
+
+    canvas.addEventListener('pointerup', endPointer);
+    canvas.addEventListener('pointercancel', endPointer);
+    canvas.addEventListener('pointerleave', (event) => {
+      if (event.pointerType === 'mouse' && event.buttons === 0) endPointer(event);
+    });
+  }
+
+  function setupKeyboard() {
+    window.addEventListener('keydown', (event) => {
+      const tag = document.activeElement && document.activeElement.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if (event.code === 'Space') {
+        event.preventDefault();
+        toggleRunning();
+      } else if (event.key === 's' || event.key === 'S') {
+        event.preventDefault();
+        setRunning(false);
+        computeNextGeneration();
+        draw();
+      } else if (event.key === 'r' || event.key === 'R') {
+        event.preventDefault();
+        randomizeGrid(true);
+      } else if (event.key === 'c' || event.key === 'C') {
+        event.preventDefault();
+        clearGrid();
+      }
+    });
+  }
+
+  function initialize() {
+    setupTabs();
+    setupBasicControls();
+    setupButtons();
+    setupRuleEvents();
+    setupCanvasInteractions();
+    setupKeyboard();
+
+    rebuildOffsetsAndRates('birth', true);
+    rebuildOffsetsAndRates('death', true);
+    renderNeighborGrid('birth');
+    renderNeighborGrid('death');
+    renderRules('birth');
+    renderRules('death');
+    initializeGrid();
+    updateStats();
+    draw();
+
+    if ('ResizeObserver' in window) {
+      const resizeObserver = new ResizeObserver(() => draw());
+      resizeObserver.observe(canvas);
+      resizeObserver.observe(els.controlPanel);
+    } else {
+      window.addEventListener('resize', draw);
+    }
+  }
+
+  initialize();
+})();
+</script>
+</body>
+</html>
