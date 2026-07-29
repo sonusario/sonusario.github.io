@@ -7,25 +7,24 @@
 <style>
 :root{
   color-scheme:dark;
-  --bg:#0d1015;
-  --panel:#151a22;
-  --panel-2:#10141b;
-  --soft:#1d2430;
-  --text:#f7f8fb;
-  --muted:#aeb8c6;
-  --quiet:#7f8b9d;
-  --border:#303a49;
-  --track:#2a3340;
-  --btn:#26303d;
-  --btn2:#344254;
-  --accent:#ff9a00;
-  --birth:#2f83ff;
-  --danger:#ff9a00;
-  --dead-low:#15151d;
-  --dead-high:#0e2e63;
-  --live-low:#ffffff;
-  --live-high:#ff9a00;
-  --radius:12px;
+  --bg:#080b10;
+  --panel:#0f131a;
+  --card:#141922;
+  --sunk:#0b0f15;
+  --line:rgba(255,255,255,.07);
+  --line-hi:rgba(255,255,255,.16);
+  --text:#eaeff7;
+  --muted:#93a0b2;
+  --quiet:#66748a;
+  --btn:#1c242f;
+  --btn-hi:#28323f;
+  --birth:#3d8bfd;
+  --death:#ff9a00;
+  --decay:#a06bff;
+  --stop:#d84a2f;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --r:11px;
+  --pad:10px;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -33,590 +32,461 @@ body{
   margin:0;
   overflow:hidden;
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  background:radial-gradient(circle at top left,rgba(255,154,0,.07),transparent 30rem),linear-gradient(#111821,#0d1015 55%);
+  background:var(--bg);
   color:var(--text);
+  -webkit-tap-highlight-color:transparent;
 }
-button,input,select{font:inherit}
+button,input,select{font:inherit;color:inherit}
 button{touch-action:manipulation}
-.app{
-  height:100vh;
-  display:grid;
-  grid-template-rows:auto 1fr;
-  min-width:0;
+:focus-visible{outline:2px solid var(--death);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- shell ---------- */
+.app{height:100vh;height:100dvh;display:grid;grid-template-rows:auto 1fr}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:8px 12px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#12171f,#0d1117);
 }
-.app-header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:10px 12px;
-  border-bottom:1px solid rgba(255,255,255,.08);
-  background:rgba(12,15,21,.88);
-  backdrop-filter:blur(10px);
+.brand{min-width:0;display:flex;align-items:baseline;gap:10px}
+.brand h1{
+  margin:0;font-size:.98rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.title-block{min-width:0}
-h1{margin:0;font-size:clamp(1.05rem,.85rem + 1vw,1.5rem);line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.subtitle{margin:2px 0 0;color:var(--muted);font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.header-actions{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
-.workspace{
-  min-height:0;
-  display:flex;
-  align-items:stretch;
-  overflow:hidden;
+.brand .tag{margin:0;color:var(--quiet);font-size:.72rem;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.transport{display:flex;gap:6px;flex:0 0 auto}
+
+/* ---------- buttons ---------- */
+.btn,.icon-btn{
+  border:1px solid var(--line-hi);background:var(--btn);border-radius:9px;
+  min-height:34px;padding:6px 11px;font-size:.8rem;font-weight:700;cursor:pointer;
+  transition:background .12s ease,border-color .12s ease;
 }
-.control-panel{
-  position:relative;
-  flex:0 0 auto;
-  width:clamp(320px,31vw,560px);
-  min-width:300px;
-  max-width:min(680px,70vw);
-  min-height:0;
-  resize:horizontal;
-  overflow:hidden;
-  border-right:1px solid rgba(255,255,255,.09);
-  background:linear-gradient(180deg,rgba(21,26,34,.98),rgba(17,21,28,.98));
-  box-shadow:14px 0 26px rgba(0,0,0,.28);
-  display:grid;
-  grid-template-rows:auto auto 1fr;
-}
-.control-panel.collapsed{
-  width:52px!important;
-  min-width:52px;
-  max-width:52px;
-  resize:none;
-}
-.control-panel.collapsed .panel-title,
-.control-panel.collapsed .tabs,
-.control-panel.collapsed .panel-scroll{display:none}
-.panel-top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-  padding:10px;
-  border-bottom:1px solid rgba(255,255,255,.08);
-}
-.panel-title{font-weight:800;letter-spacing:.02em;color:#f2f4f8;font-size:.9rem}
-.icon-btn,.btn{
-  border:1px solid var(--border);
-  color:var(--text);
-  background:var(--btn);
-  border-radius:9px;
-  min-height:34px;
-  padding:7px 10px;
-  font-weight:800;
-  cursor:pointer;
-}
-.icon-btn{min-width:34px;padding:0 8px}
-.btn:hover,.icon-btn:hover{background:var(--btn2)}
-.btn.primary{background:#e58b00;border-color:#ffb14b;color:#101010}
-.btn.primary.running{background:#a9341e;border-color:#ff7f66;color:#fff}
-.btn.birth{background:#163963;border-color:#2365b5}
-.btn.death{background:#5a3500;border-color:#d58400;color:#fff7ec}
+.btn:hover,.icon-btn:hover{background:var(--btn-hi)}
+.btn:active{transform:translateY(1px)}
 .btn.full{width:100%}
-.tabs{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:4px;
-  padding:8px;
-  border-bottom:1px solid rgba(255,255,255,.08);
+.btn.primary{background:var(--death);border-color:#ffbc5c;color:#160e00}
+.btn.primary.on{background:var(--stop);border-color:#ff8b6c;color:#fff}
+.btn.birth{background:#14335c;border-color:#2b6ec4}
+.btn.death{background:#4d2f00;border-color:#c17a00}
+.btn.decay{background:#331c5c;border-color:#7a4fd0}
+.icon-btn{min-width:34px;padding:0 8px;display:grid;place-items:center}
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.btn-row.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.btn-row.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+.btn-row .btn{padding:6px 4px}
+
+/* ---------- panel ---------- */
+.workspace{min-height:0;display:flex;align-items:stretch;overflow:hidden;position:relative}
+.panel{
+  flex:0 0 auto;width:clamp(320px,30vw,460px);min-width:296px;max-width:min(640px,68vw);
+  min-height:0;overflow:hidden;border-right:1px solid var(--line);
+  background:var(--panel);display:grid;grid-template-rows:auto auto 1fr;
 }
-.tab-button{
-  border:1px solid transparent;
-  color:var(--muted);
-  background:transparent;
-  border-radius:8px;
-  padding:8px 4px;
-  cursor:pointer;
-  font-size:.78rem;
-  font-weight:800;
+@media (min-width:881px){.panel{resize:horizontal}}
+.panel-head{display:flex;align-items:center;gap:8px;padding:8px var(--pad);border-bottom:1px solid var(--line)}
+.panel-title{font-size:.74rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;border-bottom:1px solid var(--line)}
+.tab{
+  border:1px solid transparent;background:var(--sunk);color:var(--muted);border-radius:8px;
+  padding:8px 2px;font-size:.75rem;font-weight:800;letter-spacing:.04em;cursor:pointer;
 }
-.tab-button.active{color:#101010;background:var(--accent);border-color:#ffb653}
-.panel-scroll{
-  position:relative;
-  min-height:0;
-  overflow-y:auto;
-  overscroll-behavior:contain;
-  touch-action:pan-y;
-  padding:10px 30px 28px 10px;
-  scrollbar-gutter:stable both-edges;
-}
-.scroll-gutter{
-  position:absolute;
-  top:0;
-  right:0;
-  bottom:0;
-  width:20px;
-  z-index:3;
-  cursor:ns-resize;
-  touch-action:pan-y;
-  background:repeating-linear-gradient(180deg,rgba(174,184,198,.14) 0 6px,transparent 6px 13px);
-  border-left:1px solid rgba(255,255,255,.06);
-  opacity:.72;
-}
-.scroll-gutter:hover{opacity:1}
-.panel-scroll::after{
-  content:"scroll zone";
-  position:sticky;
-  display:block;
-  bottom:0;
-  margin-left:auto;
-  width:100%;
-  pointer-events:none;
-  font-size:.67rem;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  color:rgba(174,184,198,.42);
-  text-align:right;
-  padding:8px 2px 0;
-}
+.tab[aria-selected="true"]{background:var(--btn-hi);color:#fff;border-color:var(--line-hi)}
+.tab[data-tab="rules"][aria-selected="true"]{box-shadow:inset 0 -2px 0 var(--birth)}
+.tab[data-tab="decay"][aria-selected="true"]{box-shadow:inset 0 -2px 0 var(--decay)}
+.panel-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--pad) var(--pad) 40px;scrollbar-gutter:stable}
 .tab-panel{display:none}
-.tab-panel.active{display:grid;gap:10px}
-.card{
-  background:rgba(16,20,27,.84);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:var(--radius);
-  padding:10px;
-  display:grid;
-  gap:9px;
-}
+.tab-panel.active{display:grid;gap:9px}
+
+/* ---------- cards ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:var(--pad);display:grid;gap:9px}
 .card-title{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:8px;
-  margin:0;
-  font-size:.83rem;
-  line-height:1.2;
-  color:#fff;
-  letter-spacing:.02em;
-  text-transform:uppercase;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0;
+  font-size:.7rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:#cfd8e6;
 }
-.help{margin:0;color:var(--muted);font-size:.76rem;line-height:1.35}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.button-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.button-row.three{grid-template-columns:repeat(3,minmax(0,1fr))}
-.field{
-  display:grid;
-  grid-template-columns:minmax(92px,.88fr) minmax(0,1.6fr) 48px;
-  align-items:center;
-  column-gap:8px;
-  row-gap:4px;
-  min-height:34px;
+.chip{font-family:var(--mono);font-size:.68rem;font-weight:600;color:var(--quiet);white-space:nowrap}
+.help{margin:0;color:var(--muted);font-size:.74rem;line-height:1.4}
+.keys{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:.74rem;color:var(--muted)}
+.keys kbd{
+  font-family:var(--mono);font-size:.7rem;background:var(--sunk);border:1px solid var(--line-hi);
+  border-radius:5px;padding:1px 6px;margin-right:7px;color:var(--text);
 }
-.field.wide{grid-template-columns:minmax(120px,.9fr) minmax(0,1.7fr) 54px}
-.field label,.field .field-label{
-  color:#d9dee8;
-  font-size:.79rem;
-  font-weight:760;
-  line-height:1.1;
-  justify-self:start;
+
+/* ---------- fields ---------- */
+.field{display:grid;grid-template-columns:minmax(84px,.9fr) minmax(0,1.5fr) 50px;align-items:center;gap:8px;min-height:32px}
+.field>label{font-size:.78rem;font-weight:650;color:#d3dbe7;line-height:1.15}
+.field.check{grid-template-columns:1fr auto}
+input[type="range"]{width:100%;min-width:0;touch-action:pan-y;accent-color:var(--death);height:22px}
+.birth-tint input[type="range"]{accent-color:var(--birth)}
+.decay-tint input[type="range"]{accent-color:var(--decay)}
+input[type="number"]{
+  width:100%;border:1px solid var(--line-hi);border-radius:7px;background:var(--sunk);
+  padding:5px 3px;text-align:center;font-family:var(--mono);font-size:.76rem;
 }
-.field .unit{color:var(--quiet);font-size:.72rem;font-weight:650;white-space:nowrap}
-.field input[type="range"]{width:100%;min-width:0;touch-action:pan-y;accent-color:var(--accent)}
-.field input[type="number"], .short-number{
-  width:48px;
-  min-width:0;
-  border:1px solid var(--border);
-  border-radius:7px;
-  background:#0e1218;
-  color:var(--text);
-  padding:5px 4px;
-  text-align:center;
-  font-variant-numeric:tabular-nums;
+input[type="number"]::-webkit-outer-spin-button,input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type="number"]{-moz-appearance:textfield}
+input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--death);margin:0}
+
+/* ---------- segmented ---------- */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--sunk);border:1px solid var(--line);border-radius:10px}
+.seg button{
+  border:1px solid transparent;background:transparent;color:var(--muted);border-radius:7px;
+  min-height:32px;font-size:.78rem;font-weight:800;cursor:pointer;
 }
-.field.wide input[type="number"]{width:54px}
-.field input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--accent)}
-.field.checkbox{grid-template-columns:minmax(150px,1fr) 24px}
-.field.checkbox label{font-size:.8rem}
-.inline-pair{display:grid;grid-template-columns:1fr 1fr;gap:7px}
-.color-field{
-  display:grid;
-  grid-template-columns:minmax(130px,1fr) 44px 78px;
-  align-items:center;
-  gap:8px;
+.seg button[aria-selected="true"]{background:var(--btn-hi);color:#fff;border-color:var(--line-hi)}
+.seg button.birth[aria-selected="true"]{background:#14335c;border-color:var(--birth);color:#fff}
+.seg button.death[aria-selected="true"]{background:#4d2f00;border-color:var(--death);color:#fff}
+
+/* ---------- rule rows ---------- */
+.rule-list{display:grid;gap:4px;max-height:44vh;overflow:auto;overscroll-behavior:contain;padding-right:2px}
+.rule-row{display:grid;grid-template-columns:56px minmax(0,1fr) 46px;align-items:center;gap:7px;min-height:28px}
+.rule-row.decay{grid-template-columns:56px 30px minmax(0,1fr) 46px}
+.rule-row>label{font-family:var(--mono);font-size:.72rem;font-weight:600;color:#c3cddb;white-space:nowrap}
+.rule-row .dir{display:grid;place-items:center;position:relative}
+.rule-row .dir input{inline-size:16px;block-size:16px;accent-color:var(--decay)}
+.rule-row.down>label{color:var(--decay)}
+.rule-row input[type="number"]{font-size:.72rem;padding:4px 2px}
+
+/* ---------- masks ---------- */
+.mask{display:grid;grid-template-columns:repeat(9,1fr);gap:2px}
+.mask button{
+  aspect-ratio:1;min-width:0;border:1px solid rgba(147,160,178,.28);background:var(--sunk);
+  border-radius:3px;padding:0;cursor:pointer;
 }
-.color-field label{font-size:.78rem;color:#d9dee8;font-weight:760;line-height:1.1}
-.color-field input[type="color"]{width:42px;height:30px;padding:0;border:1px solid var(--border);border-radius:7px;background:#0e1218}
-.color-field code{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
-.rule-toolbar{display:grid;gap:9px}
-.rule-list{display:grid;gap:5px;max-height:38vh;overflow:auto;padding-right:3px;overscroll-behavior:contain;touch-action:pan-y}
-.rule-section{display:grid;gap:8px}
-.rule-section-header{
-  position:sticky;
-  top:-10px;
-  z-index:2;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-  padding:7px 6px;
-  background:rgba(16,20,27,.96);
-  border:1px solid rgba(255,255,255,.06);
-  border-radius:9px;
-  color:#fff;
-  font-weight:850;
-  font-size:.78rem;
-}
-.rule-count{color:var(--muted);font-weight:760;font-size:.72rem;white-space:nowrap}
-.rule-row{
-  display:grid;
-  grid-template-columns:72px minmax(0,1fr) 46px;
-  align-items:center;
-  gap:7px;
-  min-height:30px;
-}
-.rule-row label{font-size:.74rem;font-weight:800;color:#dce2ec;white-space:nowrap}
-.rule-row input[type="range"]{width:100%;accent-color:var(--birth);touch-action:pan-y}
-.rule-row.death input[type="range"]{accent-color:var(--danger)}
-.rule-row input[type="number"]{
-  width:46px;
-  border:1px solid var(--border);
-  border-radius:7px;
-  background:#0e1218;
-  color:var(--text);
-  padding:4px 3px;
-  text-align:center;
-  font-variant-numeric:tabular-nums;
-}
-.subtabs{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.subtab-button{
-  border:1px solid var(--border);
-  background:var(--btn);
-  color:var(--muted);
-  border-radius:8px;
-  min-height:34px;
-  font-weight:800;
-  cursor:pointer;
-}
-.subtab-button.active{background:#163963;border-color:#2f83ff;color:#fff}
-.subtab-button.death.active{background:#5a3500;border-color:#ff9a00;color:#fff}
-.neighbor-pane{display:none;gap:10px}
-.neighbor-pane.active{display:grid}
-.neighbor-grid{
-  display:grid;
-  grid-template-columns:repeat(9,1fr);
-  gap:2px;
-  touch-action:manipulation;
-}
-.neighbor-cell{
-  aspect-ratio:1/1;
-  min-width:0;
-  border:1px solid rgba(174,184,198,.35);
-  background:#0e1218;
-  color:transparent;
-  border-radius:3px;
-  cursor:pointer;
-}
-.neighbor-cell.active.birth{background:#0e2e63;border-color:#4c95ff;box-shadow:inset 0 0 0 1px rgba(98,163,255,.45)}
-.neighbor-cell.active.death{background:#6e4200;border-color:#ffad33;box-shadow:inset 0 0 0 1px rgba(255,188,92,.45)}
-.neighbor-cell.center{background:#f7f8fb;border-color:#f7f8fb;cursor:not-allowed;position:relative}
-.neighbor-cell.center::after{content:"•";color:#101010;position:absolute;inset:0;display:grid;place-items:center;font-weight:900}
-.neighbor-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.canvas-area{
-  flex:1 1 auto;
-  min-width:0;
-  min-height:0;
-  display:grid;
-  grid-template-rows:1fr auto;
-  gap:8px;
-  padding:10px;
-  overflow:hidden;
-}
+.mask button.on{background:#14335c;border-color:var(--birth)}
+.mask.death button.on{background:#4d2f00;border-color:var(--death)}
+.mask.decay button.on{background:#331c5c;border-color:var(--decay)}
+.mask button.core{background:#e9eef7;border-color:#e9eef7;cursor:not-allowed;position:relative}
+.mask button.core::after{content:"";position:absolute;inset:32%;background:#0b0f15;border-radius:50%}
+
+/* ---------- colour ---------- */
+.grad{height:16px;border-radius:6px;border:1px solid var(--line-hi)}
+.swatches{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.swatch{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:7px;cursor:pointer}
+.swatch input[type="color"]{width:34px;height:28px;padding:0;border:1px solid var(--line-hi);border-radius:6px;background:var(--sunk);cursor:pointer}
+.swatch b{display:block;font-size:.72rem;font-weight:650;color:#d3dbe7}
+.swatch code{font-family:var(--mono);font-size:.66rem;color:var(--quiet)}
+
+/* ---------- stage ---------- */
+.stage{flex:1 1 auto;min-width:0;min-height:0;position:relative;display:grid;grid-template-rows:1fr auto;gap:8px;padding:10px}
 .canvas-frame{
-  min-width:0;
-  min-height:0;
-  display:grid;
-  place-items:center;
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:14px;
-  background:radial-gradient(circle at center,rgba(14,46,99,.12),transparent 32rem),#080a0f;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4),0 12px 38px rgba(0,0,0,.3);
-  overflow:hidden;
+  position:relative;min-width:0;min-height:0;overflow:hidden;border-radius:12px;
+  border:1px solid var(--line);background:#05070a;
 }
-#lifeCanvas{
-  display:block;
-  max-width:100%;
-  max-height:100%;
-  width:auto;
-  height:auto;
-  image-rendering:pixelated;
-  border-radius:8px;
-  border:1px solid rgba(174,184,198,.28);
-  background:#15151d;
-  cursor:crosshair;
-  touch-action:none;
-  user-select:none;
+#cv{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  image-rendering:pixelated;cursor:crosshair;touch-action:none;user-select:none;
 }
-.canvas-meta{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  color:var(--muted);
-  font-size:.78rem;
-  min-height:28px;
+.stagebar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.stats{display:flex;gap:14px;font-family:var(--mono);font-size:.74rem}
+.stat{display:grid;gap:1px}
+.stat b{font-size:.62rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--quiet)}
+.stat span{font-variant-numeric:tabular-nums;color:#e7eefa}
+.stat.off span{color:var(--quiet)}
+.stat.decay b{color:var(--decay)}
+.viewtools{display:flex;align-items:center;gap:6px}
+.viewtools .zoom{font-family:var(--mono);font-size:.74rem;color:var(--muted);min-width:5ch;text-align:center}
+.rule-pane{display:grid;gap:9px}
+.rule-pane[hidden]{display:none}
+.fab{
+  position:absolute;top:18px;left:18px;z-index:6;display:none;
+  box-shadow:0 6px 20px rgba(0,0,0,.5);
 }
-.stats{
-  display:grid;
-  grid-template-columns:repeat(4,max-content);
-  gap:12px;
-  align-items:center;
-  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
-  font-variant-numeric:tabular-nums;
-  white-space:nowrap;
-}
-.stat{display:grid;grid-template-columns:auto 9ch;gap:4px;align-items:baseline}
-.stat span:first-child{color:var(--quiet)}
-.stat span:last-child{text-align:right;color:#eef3fb}
-.hint{text-align:right;max-width:52ch}
-.hidden{display:none!important}
+.app.folded .fab{display:grid}
+.app.folded .panel{display:none}
+
+/* ---------- responsive ---------- */
 @media (max-width:880px){
-  .app-header{align-items:flex-start;gap:8px}
-  .header-actions{flex-wrap:wrap;justify-content:flex-end}
-  .workspace{position:relative}
-  .control-panel{width:min(84vw,390px);max-width:84vw;min-width:280px;resize:none;z-index:5}
-  .control-panel.collapsed{width:48px!important;min-width:48px;max-width:48px}
-  .field{grid-template-columns:minmax(96px,.9fr) minmax(0,1.4fr) 46px}
-  .canvas-area{padding:8px}
-  .canvas-meta{align-items:flex-start;flex-direction:column}
-  .stats{grid-template-columns:repeat(2,max-content);gap:6px 10px}
-  .hint{text-align:left}
+  .panel{position:absolute;inset:0 auto 0 0;z-index:8;width:min(90vw,370px);max-width:90vw;box-shadow:16px 0 34px rgba(0,0,0,.5)}
+  .brand .tag{display:none}
+  .transport .btn{padding:6px 8px}
+  .rule-list{max-height:none}
 }
-@media (max-width:520px){
-  .app-header{padding:8px}
-  .subtitle{display:none}
-  .control-panel{width:min(88vw,360px);min-width:260px;max-width:88vw}
-  .tabs{grid-template-columns:repeat(2,1fr)}
-  .grid-2,.button-row,.button-row.three,.inline-pair{grid-template-columns:1fr}
-  .field,.field.wide{grid-template-columns:1fr;align-items:start}
-  .field input[type="number"],.field.wide input[type="number"]{width:100%}
-  .rule-row{grid-template-columns:58px minmax(0,1fr) 44px}
-  .color-field{grid-template-columns:1fr 42px 72px}
+@media (max-width:560px){
+  .topbar{flex-wrap:wrap;gap:8px}
+  .transport{width:100%;display:grid;grid-template-columns:repeat(4,1fr)}
+  .field{grid-template-columns:minmax(72px,1fr) minmax(0,1.2fr) 44px}
+  .swatches{grid-template-columns:1fr}
+  .stats{gap:10px}
 }
 </style>
 </head>
 <body>
-<div class="app">
-  <header class="app-header">
-    <div class="title-block">
-      <h1>Probabilistic Cellular Automaton</h1>
-      <p class="subtitle">Tabbed controls, variable neighbor masks, zoom/pan, and birth/death probability rules.</p>
+<div class="app" id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <h1>Probabilistic CA</h1>
+      <p class="tag">birth · death · depletion</p>
     </div>
-    <div class="header-actions">
-      <button class="btn primary" id="startStop" type="button">Start</button>
+    <div class="transport">
+      <button class="btn primary" id="playBtn" type="button">Start</button>
       <button class="btn" id="stepBtn" type="button">Step</button>
-      <button class="btn" id="randomizeBtn" type="button">Randomize</button>
+      <button class="btn" id="randomBtn" type="button">Randomize</button>
       <button class="btn" id="clearBtn" type="button">Clear</button>
     </div>
   </header>
 
   <main class="workspace">
-    <aside class="control-panel" id="controlPanel" aria-label="Controls">
-      <div class="panel-top">
-        <button class="icon-btn" id="panelToggle" type="button" title="Collapse or expand controls">☰</button>
-        <div class="panel-title">Controls</div>
+    <aside class="panel" id="panel" aria-label="Controls">
+      <div class="panel-head">
+        <button class="icon-btn" id="panelClose" type="button" title="Hide controls" aria-label="Hide controls">☰</button>
+        <span class="panel-title">Controls</span>
       </div>
-      <nav class="tabs" aria-label="Control tabs">
-        <button class="tab-button active" type="button" data-tab="simulate">Simulate</button>
-        <button class="tab-button" type="button" data-tab="settings">Settings</button>
-        <button class="tab-button" type="button" data-tab="rules">Rules</button>
-        <button class="tab-button" type="button" data-tab="neighbors">Neighbors</button>
+
+      <nav class="tabs" role="tablist" aria-label="Control groups">
+        <button class="tab" role="tab" type="button" data-tab="run" aria-selected="true">Run</button>
+        <button class="tab" role="tab" type="button" data-tab="rules" aria-selected="false">Rules</button>
+        <button class="tab" role="tab" type="button" data-tab="decay" aria-selected="false">Decay</button>
+        <button class="tab" role="tab" type="button" data-tab="view" aria-selected="false">View</button>
       </nav>
-      <div class="panel-scroll" id="panelScroll">
-        <div class="scroll-gutter" title="Drag here to scroll controls without touching sliders" aria-hidden="true"></div>
-        <section class="tab-panel active" id="tab-simulate">
+
+      <div class="panel-body">
+
+        <!-- RUN -->
+        <section class="tab-panel active" id="tab-run" role="tabpanel">
           <div class="card">
-            <h2 class="card-title">Run</h2>
-            <div class="button-row">
-              <button class="btn primary" id="startStopPanel" type="button">Start</button>
-              <button class="btn" id="stepPanel" type="button">Step</button>
-              <button class="btn" id="randomizePanel" type="button">Randomize</button>
-              <button class="btn" id="clearPanel" type="button">Clear</button>
+            <h2 class="card-title">Speed</h2>
+            <div class="field">
+              <label for="fpsR">Generations/sec</label>
+              <input id="fpsR" type="range" min="1" max="60" step="1" value="12">
+              <input id="fpsN" type="number" min="1" max="60" step="1" value="12" aria-label="Generations per second">
             </div>
-            <button class="btn full" id="resetViewBtn" type="button">Reset View</button>
-            <p class="help">Randomize preserves the current play/pause state. Step always pauses first.</p>
+            <div class="field">
+              <label for="skipR">Frames skipped</label>
+              <input id="skipR" type="range" min="0" max="120" step="1" value="0">
+              <input id="skipN" type="number" min="0" max="120" step="1" value="0" aria-label="Frames skipped">
+            </div>
+            <p class="help">Skipping 1 computes every generation but paints every other one.</p>
           </div>
 
           <div class="card">
-            <h2 class="card-title">Timing</h2>
-            <div class="field wide">
-              <label for="fpsRange">Simulation FPS</label>
-              <input id="fpsRange" type="range" min="1" max="60" step="1" value="12">
-              <input id="fpsNumber" type="number" min="1" max="60" step="1" value="12" aria-label="Simulation FPS value">
+            <h2 class="card-title">Random fill</h2>
+            <div class="field">
+              <label for="densR">Live density</label>
+              <input id="densR" type="range" min="0" max="100" step="1" value="30">
+              <input id="densN" type="number" min="0" max="100" step="1" value="30" aria-label="Live density percent">
             </div>
-            <div class="field wide">
-              <label for="frameSkipRange">Frames to skip</label>
-              <input id="frameSkipRange" type="range" min="0" max="120" step="1" value="0">
-              <input id="frameSkipNumber" type="number" min="0" max="120" step="1" value="0" aria-label="Frames to skip value">
-            </div>
-            <p class="help">A skip value of 1 calculates every step but draws every other generation.</p>
+            <button class="btn full" id="fillBtn" type="button">Fill grid now</button>
+            <p class="help">Fill and Clear both reset the generation count and all depletion.</p>
           </div>
 
           <div class="card">
-            <h2 class="card-title">Drawing</h2>
-            <div class="field checkbox">
-              <label for="lineMode">Line draw mode</label>
+            <h2 class="card-title">Brush</h2>
+            <div class="field check">
+              <label for="lineMode">Connect the drag path</label>
               <input id="lineMode" type="checkbox">
             </div>
-            <div class="field wide">
-              <label for="brushRange">Draw block size</label>
-              <input id="brushRange" type="range" min="1" max="51" step="2" value="1">
-              <input id="brushNumber" type="number" min="1" max="51" step="2" value="1" aria-label="Draw block size value">
+            <div class="field">
+              <label for="brushR">Block size</label>
+              <input id="brushR" type="range" min="1" max="51" step="2" value="1">
+              <input id="brushN" type="number" min="1" max="51" step="2" value="1" aria-label="Brush block size">
             </div>
-            <p class="help">Left-drag draws. With line mode on, drag strokes fill gaps between sampled cells. The first touched cell decides whether the stroke paints live or dead.</p>
-          </div>
-        </section>
-
-        <section class="tab-panel" id="tab-settings">
-          <div class="card">
-            <h2 class="card-title">Grid</h2>
-            <div class="field wide">
-              <label for="densityRange">Random density</label>
-              <input id="densityRange" type="range" min="0" max="100" step="1" value="30">
-              <input id="densityNumber" type="number" min="0" max="100" step="1" value="30" aria-label="Random density value">
-            </div>
-            <div class="field wide">
-              <label for="cellSizeRange">Cell size px</label>
-              <input id="cellSizeRange" type="range" min="1" max="20" step="1" value="10">
-              <input id="cellSizeNumber" type="number" min="1" max="20" step="1" value="10" aria-label="Cell size value">
-            </div>
-            <div class="field checkbox">
-              <label for="wrapEdges">Wrap edges</label>
-              <input id="wrapEdges" type="checkbox" checked>
-            </div>
-            <div class="field checkbox">
-              <label for="showCellBorders">Show cell borders</label>
-              <input id="showCellBorders" type="checkbox" checked>
-            </div>
+            <p class="help">The first cell you touch decides whether the whole stroke writes live or dead.</p>
           </div>
 
           <div class="card">
-            <h2 class="card-title">Color gradients</h2>
-            <p class="help">Live cells use the death-rate gradient. Dead cells use the birth-rate gradient.</p>
-            <div class="color-field">
-              <label for="liveLowColor">Live, low death</label>
-              <input id="liveLowColor" type="color" value="#ffffff">
-              <code id="liveLowText">#ffffff</code>
-            </div>
-            <div class="color-field">
-              <label for="liveHighColor">Live, high death</label>
-              <input id="liveHighColor" type="color" value="#ff9a00">
-              <code id="liveHighText">#ff9a00</code>
-            </div>
-            <div class="color-field">
-              <label for="deadLowColor">Dead, low birth</label>
-              <input id="deadLowColor" type="color" value="#15151d">
-              <code id="deadLowText">#15151d</code>
-            </div>
-            <div class="color-field">
-              <label for="deadHighColor">Dead, high birth</label>
-              <input id="deadHighColor" type="color" value="#0e2e63">
-              <code id="deadHighText">#0e2e63</code>
-            </div>
+            <h2 class="card-title">Keys &amp; pointers</h2>
+            <ul class="keys">
+              <li><kbd>Space</kbd>start / pause</li>
+              <li><kbd>S</kbd>single step</li>
+              <li><kbd>R</kbd>randomize<kbd>C</kbd>clear</li>
+              <li><kbd>+ −</kbd>zoom<kbd>0</kbd>reset view</li>
+              <li><kbd>drag</kbd>draw · <kbd>middle or right drag</kbd>pan · <kbd>wheel</kbd>zoom</li>
+              <li><kbd>touch</kbd>one finger draws, two pan and pinch</li>
+            </ul>
           </div>
         </section>
 
-        <section class="tab-panel" id="tab-rules">
-          <div class="card rule-toolbar">
-            <h2 class="card-title">Global rule controls</h2>
-            <div class="inline-pair">
-              <div class="field wide">
-                <label for="ruleMinRange">Rule min</label>
-                <input id="ruleMinRange" type="range" min="0" max="100" step="1" value="0">
-                <input id="ruleMinNumber" type="number" min="0" max="100" step="1" value="0" aria-label="Rule minimum value">
-              </div>
-              <div class="field wide">
-                <label for="ruleMaxRange">Rule max</label>
-                <input id="ruleMaxRange" type="range" min="0" max="100" step="1" value="100">
-                <input id="ruleMaxNumber" type="number" min="0" max="100" step="1" value="100" aria-label="Rule maximum value">
+        <!-- RULES -->
+        <section class="tab-panel" id="tab-rules" role="tabpanel">
+          <div class="card">
+            <h2 class="card-title">Presets</h2>
+            <div class="btn-row four">
+              <button class="btn" type="button" data-preset="conway">Conway</button>
+              <button class="btn" type="button" data-preset="highlife">HighLife</button>
+              <button class="btn" type="button" data-preset="seeds">Seeds</button>
+              <button class="btn decay" type="button" data-preset="ember">Ember</button>
+            </div>
+            <p class="help">Ember is Conway plus depletion: crowded cells burn out, sparse ones recover.</p>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Clamp <span class="chip" id="clampChip">0–100%</span></h2>
+            <div class="field">
+              <label for="clampMinR">Lowest rate</label>
+              <input id="clampMinR" type="range" min="0" max="100" step="1" value="0">
+              <input id="clampMinN" type="number" min="0" max="100" step="1" value="0" aria-label="Lowest rate">
+            </div>
+            <div class="field">
+              <label for="clampMaxR">Highest rate</label>
+              <input id="clampMaxR" type="range" min="0" max="100" step="1" value="100">
+              <input id="clampMaxN" type="number" min="0" max="100" step="1" value="100" aria-label="Highest rate">
+            </div>
+            <p class="help">Limits every birth, death and depletion rate, including the master sliders.</p>
+            <button class="btn full" id="randRules" type="button">Randomize birth &amp; death rates</button>
+          </div>
+
+          <div class="seg" role="tablist" aria-label="Rule set">
+            <button class="birth" role="tab" type="button" data-rule="birth" aria-selected="true">Birth</button>
+            <button class="death" role="tab" type="button" data-rule="death" aria-selected="false">Death</button>
+          </div>
+
+          <div class="rule-pane" data-pane="birth">
+            <div class="card birth-tint">
+              <h2 class="card-title">Birth neighbourhood <span class="chip" id="birthMaskChip">8 cells</span></h2>
+              <p class="help">Which offsets a dead cell scans for live neighbours. Centre is the cell itself.</p>
+              <div class="mask birth" id="birthMask" aria-label="Birth neighbour mask"></div>
+              <div class="btn-row three">
+                <button class="btn" type="button" data-mask="birth:moore">Moore 8</button>
+                <button class="btn" type="button" data-mask="birth:all">All 80</button>
+                <button class="btn" type="button" data-mask="birth:random">Random</button>
               </div>
             </div>
-            <p class="help">The min/max range clamps every birth and death-rate control, including the two master sliders.</p>
-            <div class="field wide">
-              <label for="birthMasterRange">Birth master</label>
-              <input id="birthMasterRange" type="range" min="0" max="100" step="1" value="0">
-              <input id="birthMasterNumber" type="number" min="0" max="100" step="1" value="0" aria-label="Birth master value">
-            </div>
-            <div class="field wide">
-              <label for="deathMasterRange">Death master</label>
-              <input id="deathMasterRange" type="range" min="0" max="100" step="1" value="100">
-              <input id="deathMasterNumber" type="number" min="0" max="100" step="1" value="100" aria-label="Death master value">
-            </div>
-            <div class="button-row">
-              <button class="btn birth" id="applyBirthMaster" type="button">Apply Birth</button>
-              <button class="btn death" id="applyDeathMaster" type="button">Apply Death</button>
-              <button class="btn" id="randomRuleBtn" type="button">Random Rule</button>
-              <button class="btn" id="conwayBtn" type="button">Conway</button>
+            <div class="card birth-tint">
+              <h2 class="card-title">Birth chance per live neighbour</h2>
+              <div class="field">
+                <label for="birthMasterR">Set every count</label>
+                <input id="birthMasterR" type="range" min="0" max="100" step="1" value="0">
+                <input id="birthMasterN" type="number" min="0" max="100" step="1" value="0" aria-label="Birth master rate">
+              </div>
+              <button class="btn full birth" id="birthMasterApply" type="button">Apply to all counts</button>
+              <div class="rule-list" id="birthRules"></div>
             </div>
           </div>
 
-          <div class="card rule-section">
-            <div class="rule-section-header">
-              <span>Birth rates</span>
-              <span class="rule-count" id="birthRuleCount">0–8 hits</span>
-            </div>
-            <div class="rule-list" id="birthRules"></div>
-          </div>
-
-          <div class="card rule-section">
-            <div class="rule-section-header">
-              <span>Death rates</span>
-              <span class="rule-count" id="deathRuleCount">0–8 hits</span>
-            </div>
-            <div class="rule-list" id="deathRules"></div>
-          </div>
-        </section>
-
-        <section class="tab-panel" id="tab-neighbors">
-          <div class="card">
-            <h2 class="card-title">Neighbor definitions</h2>
-            <p class="help">Each 9×9 grid defines which surrounding cells count as neighbors. The center cell is the current cell and cannot be selected. Each mask must keep at least one active neighbor.</p>
-            <div class="subtabs">
-              <button class="subtab-button active" type="button" data-neighbor-tab="birth">Birth neighbors</button>
-              <button class="subtab-button death" type="button" data-neighbor-tab="death">Death neighbors</button>
-            </div>
-          </div>
-
-          <div class="neighbor-pane active" id="neighbor-birth">
+          <div class="rule-pane" data-pane="death" hidden>
             <div class="card">
-              <h2 class="card-title">Birth mask <span class="rule-count" id="birthNeighborCount">8 active</span></h2>
-              <div class="neighbor-grid" id="birthNeighborGrid" aria-label="Birth neighbor mask"></div>
-              <div class="neighbor-actions">
-                <button class="btn" type="button" data-mask-action="birth-default">Default</button>
-                <button class="btn" type="button" data-mask-action="birth-all">All</button>
-                <button class="btn" type="button" data-mask-action="birth-random">Random</button>
+              <h2 class="card-title">Death neighbourhood <span class="chip" id="deathMaskChip">8 cells</span></h2>
+              <p class="help">Which offsets a live cell scans for live neighbours.</p>
+              <div class="mask death" id="deathMask" aria-label="Death neighbour mask"></div>
+              <div class="btn-row three">
+                <button class="btn" type="button" data-mask="death:moore">Moore 8</button>
+                <button class="btn" type="button" data-mask="death:all">All 80</button>
+                <button class="btn" type="button" data-mask="death:random">Random</button>
               </div>
             </div>
-          </div>
-
-          <div class="neighbor-pane" id="neighbor-death">
             <div class="card">
-              <h2 class="card-title">Death mask <span class="rule-count" id="deathNeighborCount">8 active</span></h2>
-              <div class="neighbor-grid" id="deathNeighborGrid" aria-label="Death neighbor mask"></div>
-              <div class="neighbor-actions">
-                <button class="btn" type="button" data-mask-action="death-default">Default</button>
-                <button class="btn" type="button" data-mask-action="death-all">All</button>
-                <button class="btn" type="button" data-mask-action="death-random">Random</button>
+              <h2 class="card-title">Death chance per live neighbour</h2>
+              <div class="field">
+                <label for="deathMasterR">Set every count</label>
+                <input id="deathMasterR" type="range" min="0" max="100" step="1" value="100">
+                <input id="deathMasterN" type="number" min="0" max="100" step="1" value="100" aria-label="Death master rate">
               </div>
+              <button class="btn full death" id="deathMasterApply" type="button">Apply to all counts</button>
+              <div class="rule-list" id="deathRules"></div>
             </div>
           </div>
         </section>
+
+        <!-- DECAY -->
+        <section class="tab-panel decay-tint" id="tab-decay" role="tabpanel">
+          <div class="card">
+            <h2 class="card-title">Depletion threshold <span class="chip" id="thrChip">off</span></h2>
+            <div class="field">
+              <label for="thrR">Threshold</label>
+              <input id="thrR" type="range" min="0" max="100" step="1" value="0">
+              <input id="thrN" type="number" min="0" max="100" step="1" value="0" aria-label="Depletion threshold">
+            </div>
+            <p class="help">Every cell carries a reserve counter. At 0 the whole depletion pass is skipped. Above 0, any cell whose counter reaches the threshold is forced dead and stays dead until the counter falls back.</p>
+            <div class="field check">
+              <label for="resetBirth">Clear a cell's counter when it is born</label>
+              <input id="resetBirth" type="checkbox">
+            </div>
+            <button class="btn full" id="clearAccum" type="button">Reset all counters</button>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Depletion neighbourhood <span class="chip" id="decayMaskChip">8 cells</span></h2>
+            <p class="help">Which offsets feed the counter roll. Live and dead cells both roll.</p>
+            <div class="mask decay" id="decayMask" aria-label="Depletion neighbour mask"></div>
+            <div class="btn-row three">
+              <button class="btn" type="button" data-mask="decay:moore">Moore 8</button>
+              <button class="btn" type="button" data-mask="decay:all">All 80</button>
+              <button class="btn" type="button" data-mask="decay:random">Random</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Counter step per live neighbour</h2>
+            <p class="help">One roll per generation. A hit moves the counter by one — up by default, down when <b>−</b> is ticked. 0% never fires, 100% always fires.</p>
+            <div class="field">
+              <label for="decayMasterR">Set every count</label>
+              <input id="decayMasterR" type="range" min="0" max="100" step="1" value="0">
+              <input id="decayMasterN" type="number" min="0" max="100" step="1" value="0" aria-label="Depletion master rate">
+            </div>
+            <div class="btn-row three">
+              <button class="btn decay" id="decayMasterApply" type="button">Apply</button>
+              <button class="btn" id="decayAllUp" type="button">All up</button>
+              <button class="btn" id="decayAllDown" type="button">All down</button>
+            </div>
+            <div class="rule-list" id="decayRules"></div>
+          </div>
+        </section>
+
+        <!-- VIEW -->
+        <section class="tab-panel" id="tab-view" role="tabpanel">
+          <div class="card">
+            <h2 class="card-title">Grid <span class="chip" id="gridChip">70 × 50</span></h2>
+            <div class="field">
+              <label for="cellR">Cell size</label>
+              <input id="cellR" type="range" min="1" max="20" step="1" value="10">
+              <input id="cellN" type="number" min="1" max="20" step="1" value="10" aria-label="Cell size">
+            </div>
+            <div class="field check"><label for="wrapEdges">Wrap edges</label><input id="wrapEdges" type="checkbox" checked></div>
+            <div class="field check"><label for="borders">Cell borders</label><input id="borders" type="checkbox" checked></div>
+            <p class="help">Resizing the grid resamples what is already drawn.</p>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Colour source</h2>
+            <div class="seg" role="tablist" aria-label="Colour source">
+              <button role="tab" type="button" data-colour="rates" aria-selected="true">Transition odds</button>
+              <button role="tab" type="button" data-colour="decay" aria-selected="false">Depletion</button>
+            </div>
+            <p class="help" id="colourHelp">Live cells shade by their death chance, dead cells by their birth chance.</p>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Live cells</h2>
+            <div class="grad" id="liveGrad"></div>
+            <div class="swatches">
+              <label class="swatch"><input type="color" id="liveLo" value="#ffffff"><span><b>Low</b><code id="liveLoT">#ffffff</code></span></label>
+              <label class="swatch"><input type="color" id="liveHi" value="#ff9a00"><span><b>High</b><code id="liveHiT">#ff9a00</code></span></label>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Dead cells</h2>
+            <div class="grad" id="deadGrad"></div>
+            <div class="swatches">
+              <label class="swatch"><input type="color" id="deadLo" value="#15151d"><span><b>Low</b><code id="deadLoT">#15151d</code></span></label>
+              <label class="swatch"><input type="color" id="deadHi" value="#0e2e63"><span><b>High</b><code id="deadHiT">#0e2e63</code></span></label>
+            </div>
+          </div>
+        </section>
+
       </div>
     </aside>
 
-    <section class="canvas-area">
-      <div class="canvas-frame">
-        <canvas id="lifeCanvas" width="700" height="500" aria-label="Interactive cellular automaton canvas"></canvas>
+    <section class="stage" id="stage">
+      <button class="btn icon-btn fab" id="panelOpen" type="button" title="Show controls" aria-label="Show controls">☰</button>
+      <div class="canvas-frame" id="frame">
+        <canvas id="cv" aria-label="Cellular automaton field"></canvas>
       </div>
-      <div class="canvas-meta">
-        <div class="stats" aria-live="polite">
-          <div class="stat"><span>Gen</span><span id="generationStat">00000000</span></div>
-          <div class="stat"><span>Live</span><span id="liveStat">00000000</span></div>
-          <div class="stat"><span>Grid</span><span id="gridStat">070×050</span></div>
-          <div class="stat"><span>View</span><span id="zoomStat">1.00×</span></div>
+      <div class="stagebar">
+        <div class="stats" aria-live="off">
+          <div class="stat"><b>Gen</b><span id="genStat">0</span></div>
+          <div class="stat"><b>Live</b><span id="liveStat">0</span></div>
+          <div class="stat decay off" id="spentStat"><b>Spent</b><span id="spentVal">—</span></div>
+          <div class="stat"><b>Grid</b><span id="sizeStat">70×50</span></div>
         </div>
-        <div class="hint">Draw: left drag / one finger. Pan: middle drag / two fingers. Zoom: wheel / pinch.</div>
+        <div class="viewtools">
+          <button class="btn icon-btn" id="zoomOut" type="button" aria-label="Zoom out">−</button>
+          <span class="zoom" id="zoomStat">1.00×</span>
+          <button class="btn icon-btn" id="zoomIn" type="button" aria-label="Zoom in">+</button>
+          <button class="btn" id="resetView" type="button">Reset view</button>
+        </div>
       </div>
     </section>
   </main>
@@ -624,1068 +494,1087 @@ h1{margin:0;font-size:clamp(1.05rem,.85rem + 1vw,1.5rem);line-height:1.1;white-s
 
 <script>
 (() => {
-  'use strict';
+'use strict';
 
-  const WORLD_WIDTH = 700;
-  const WORLD_HEIGHT = 500;
-  const MASK_SIZE = 9;
-  const MASK_CENTER = 4;
-  const CENTER_INDEX = MASK_CENTER * MASK_SIZE + MASK_CENTER;
+/* ============================ constants ============================ */
+const MASK_N = 9;                 // mask edge length
+const MASK_C = 4;                 // mask centre index on one axis
+const CENTER = MASK_C * MASK_N + MASK_C;
+const BASE_W = 700, BASE_H = 500; // grid budget in pixels-at-cell-size
+const ACC_MAX = 100;              // counter ceiling, matches threshold range
+const ZOOM_MIN = 1, ZOOM_MAX = 64;
+const KINDS = ['birth', 'death', 'decay'];
 
-  const canvas = document.getElementById('lifeCanvas');
-  const ctx = canvas.getContext('2d', { alpha: false });
+/* ============================ small helpers ============================ */
+const $ = (id) => document.getElementById(id);
+const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+function clampInt(v, lo, hi) {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? clamp(n, lo, hi) : lo;
+}
+const fmt = (n) => n.toLocaleString('en-US');
 
-  const $ = (id) => document.getElementById(id);
+const LITTLE_ENDIAN = (() => {
+  const b = new ArrayBuffer(4);
+  new Uint32Array(b)[0] = 1;
+  return new Uint8Array(b)[0] === 1;
+})();
 
-  const els = {
-    controlPanel: $('controlPanel'),
-    panelToggle: $('panelToggle'),
-    startStop: $('startStop'),
-    startStopPanel: $('startStopPanel'),
-    stepBtn: $('stepBtn'),
-    stepPanel: $('stepPanel'),
-    randomizeBtn: $('randomizeBtn'),
-    randomizePanel: $('randomizePanel'),
-    clearBtn: $('clearBtn'),
-    clearPanel: $('clearPanel'),
-    resetViewBtn: $('resetViewBtn'),
-    randomRuleBtn: $('randomRuleBtn'),
-    conwayBtn: $('conwayBtn'),
-    applyBirthMaster: $('applyBirthMaster'),
-    applyDeathMaster: $('applyDeathMaster'),
-    fpsRange: $('fpsRange'),
-    fpsNumber: $('fpsNumber'),
-    frameSkipRange: $('frameSkipRange'),
-    frameSkipNumber: $('frameSkipNumber'),
-    densityRange: $('densityRange'),
-    densityNumber: $('densityNumber'),
-    cellSizeRange: $('cellSizeRange'),
-    cellSizeNumber: $('cellSizeNumber'),
-    brushRange: $('brushRange'),
-    brushNumber: $('brushNumber'),
-    lineMode: $('lineMode'),
-    wrapEdges: $('wrapEdges'),
-    showCellBorders: $('showCellBorders'),
-    ruleMinRange: $('ruleMinRange'),
-    ruleMinNumber: $('ruleMinNumber'),
-    ruleMaxRange: $('ruleMaxRange'),
-    ruleMaxNumber: $('ruleMaxNumber'),
-    birthMasterRange: $('birthMasterRange'),
-    birthMasterNumber: $('birthMasterNumber'),
-    deathMasterRange: $('deathMasterRange'),
-    deathMasterNumber: $('deathMasterNumber'),
-    birthRules: $('birthRules'),
-    deathRules: $('deathRules'),
-    birthRuleCount: $('birthRuleCount'),
-    deathRuleCount: $('deathRuleCount'),
-    birthNeighborGrid: $('birthNeighborGrid'),
-    deathNeighborGrid: $('deathNeighborGrid'),
-    birthNeighborCount: $('birthNeighborCount'),
-    deathNeighborCount: $('deathNeighborCount'),
-    generationStat: $('generationStat'),
-    liveStat: $('liveStat'),
-    gridStat: $('gridStat'),
-    zoomStat: $('zoomStat'),
-    liveLowColor: $('liveLowColor'),
-    liveHighColor: $('liveHighColor'),
-    deadLowColor: $('deadLowColor'),
-    deadHighColor: $('deadHighColor'),
-    liveLowText: $('liveLowText'),
-    liveHighText: $('liveHighText'),
-    deadLowText: $('deadLowText'),
-    deadHighText: $('deadHighText')
-  };
+function hexToRgb(hex) {
+  const s = String(hex || '').replace('#', '').trim();
+  const v = /^[0-9a-f]{6}$/i.test(s) ? s : '000000';
+  return [parseInt(v.slice(0, 2), 16), parseInt(v.slice(2, 4), 16), parseInt(v.slice(4, 6), 16)];
+}
+function packRGB(r, g, b) {
+  return (LITTLE_ENDIAN ? (255 << 24) | (b << 16) | (g << 8) | r
+                        : (r << 24) | (g << 16) | (b << 8) | 255) >>> 0;
+}
 
-  const state = {
-    isRunning: false,
-    fps: 12,
-    frameSkip: 0,
-    skippedSinceDraw: 0,
-    randomDensity: 30,
-    cellSize: 10,
-    brushSize: 1,
-    rows: 50,
-    cols: 70,
-    grid: new Uint8Array(70 * 50),
-    nextGrid: new Uint8Array(70 * 50),
-    generation: 0,
-    liveCount: 0,
-    wrapEdges: true,
-    showCellBorders: true,
-    ruleMin: 0,
-    ruleMax: 100,
-    birthMask: makeDefaultMask(),
-    deathMask: makeDefaultMask(),
-    birthOffsets: [],
-    deathOffsets: [],
-    birthRates: [],
-    deathRates: [],
-    liveLowColor: '#ffffff',
-    liveHighColor: '#ff9a00',
-    deadLowColor: '#15151d',
-    deadHighColor: '#0e2e63',
-    liveLowRGB: [255,255,255],
-    liveHighRGB: [255,154,0],
-    deadLowRGB: [21,21,29],
-    deadHighRGB: [14,46,99],
-    viewZoom: 1,
-    viewOffsetX: 0,
-    viewOffsetY: 0
-  };
+/* ============================ state ============================ */
+const state = {
+  running: false,
+  fps: 12,
+  frameSkip: 0,
+  skipped: 0,
+  density: 30,
+  cellSize: 10,
+  brush: 1,
+  lineMode: false,
+  wrap: true,
+  borders: true,
+  colourMode: 'rates',
 
-  let rafId = null;
-  let lastFrameTime = 0;
-  let accumulatedMs = 0;
-  let drawing = false;
-  let panning = false;
-  let activePointers = new Map();
-  let pinchState = null;
-  let strokeState = 1;
-  let lastPaintCell = null;
-  let lastPanPoint = null;
+  cols: 0, rows: 0,
+  grid: null, next: null, accum: null,
+  gen: 0, live: 0, spent: 0,
 
-  function clamp(value, min, max) {
-    const n = Number(value);
-    if (!Number.isFinite(n)) return min;
-    return Math.min(max, Math.max(min, n));
+  clampMin: 0, clampMax: 100,
+  masks:   { birth: mooreMask(), death: mooreMask(), decay: mooreMask() },
+  offsets: { birth: null, death: null, decay: null },
+  rates:   { birth: [], death: [], decay: [] },
+  probs:   { birth: null, death: null, decay: null },
+  decayDir: null,                 // Int8Array, +1 up / -1 down, per neighbour count
+  threshold: 0,
+  resetOnBirth: false,
+
+  colours: { liveLo: '#ffffff', liveHi: '#ff9a00', deadLo: '#15151d', deadHi: '#0e2e63' },
+  view: { zoom: 1, x: 0, y: 0 }
+};
+
+/* ============================ masks & offsets ============================ */
+function mooreMask() {
+  const m = new Uint8Array(MASK_N * MASK_N);
+  for (let r = MASK_C - 1; r <= MASK_C + 1; r++) {
+    for (let c = MASK_C - 1; c <= MASK_C + 1; c++) {
+      const i = r * MASK_N + c;
+      if (i !== CENTER) m[i] = 1;
+    }
   }
-
-  function clampInt(value, min, max) {
-    return Math.round(clamp(value, min, max));
+  return m;
+}
+function maskCount(mask) {
+  let n = 0;
+  for (let i = 0; i < mask.length; i++) if (i !== CENTER && mask[i]) n++;
+  return n;
+}
+/** Offsets are stored as flat index deltas for interior cells plus dr/dc for edges. */
+function buildOffsets(mask, cols) {
+  const dr = [], dc = [];
+  for (let i = 0; i < mask.length; i++) {
+    if (i === CENTER || !mask[i]) continue;
+    dr.push(((i / MASK_N) | 0) - MASK_C);
+    dc.push((i % MASK_N) - MASK_C);
   }
-
-  function padded(n, width) {
-    const text = String(Math.max(0, Math.floor(n)));
-    if (text.length >= width) return text;
-    return '0'.repeat(width - text.length) + text;
+  const n = dr.length;
+  const flat = new Int32Array(n);
+  let padR = 0, padC = 0;
+  for (let i = 0; i < n; i++) {
+    flat[i] = dr[i] * cols + dc[i];
+    if (Math.abs(dr[i]) > padR) padR = Math.abs(dr[i]);
+    if (Math.abs(dc[i]) > padC) padC = Math.abs(dc[i]);
   }
+  return { n, dr: Int32Array.from(dr), dc: Int32Array.from(dc), flat, padR, padC };
+}
+function rebuildOffsets() {
+  for (const k of KINDS) state.offsets[k] = buildOffsets(state.masks[k], state.cols);
+}
 
-  function hexToRgb(hex) {
-    const clean = String(hex || '').replace('#','').trim();
-    const value = /^[0-9a-f]{6}$/i.test(clean) ? clean : '000000';
-    return [
-      parseInt(value.slice(0, 2), 16),
-      parseInt(value.slice(2, 4), 16),
-      parseInt(value.slice(4, 6), 16)
-    ];
+/* ============================ neighbour counting ============================ */
+function countFlat(grid, i, off) {
+  const f = off.flat, n = off.n;
+  let k = 0;
+  for (let j = 0; j < n; j++) k += grid[i + f[j]];
+  return k;
+}
+function countWrap(grid, rows, cols, r, c, off) {
+  const dr = off.dr, dc = off.dc, n = off.n;
+  let k = 0;
+  for (let j = 0; j < n; j++) {
+    let rr = r + dr[j]; if (rr < 0) rr += rows; else if (rr >= rows) rr -= rows;
+    let cc = c + dc[j]; if (cc < 0) cc += cols; else if (cc >= cols) cc -= cols;
+    k += grid[rr * cols + cc];
   }
-
-  function rgbToCss(rgb) {
-    return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+  return k;
+}
+function countClip(grid, rows, cols, r, c, off) {
+  const dr = off.dr, dc = off.dc, n = off.n;
+  let k = 0;
+  for (let j = 0; j < n; j++) {
+    const rr = r + dr[j], cc = c + dc[j];
+    if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) k += grid[rr * cols + cc];
   }
+  return k;
+}
 
-  function mixRgb(a, b, t) {
-    const k = clamp(t, 0, 1);
-    return [
-      Math.round(a[0] + (b[0] - a[0]) * k),
-      Math.round(a[1] + (b[1] - a[1]) * k),
-      Math.round(a[2] + (b[2] - a[2]) * k)
-    ];
+/* ============================ grid lifecycle ============================ */
+const cellCanvas = document.createElement('canvas');
+const cellCtx = cellCanvas.getContext('2d', { alpha: false, willReadFrequently: true });
+let cellImage = null, cellPix = null;
+
+const canvas = $('cv');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+function allocate(cols, rows) {
+  state.cols = cols;
+  state.rows = rows;
+  const n = cols * rows;
+  state.grid = new Uint8Array(n);
+  state.next = new Uint8Array(n);
+  state.accum = new Uint8Array(n);
+  cellCanvas.width = cols;
+  cellCanvas.height = rows;
+  cellImage = cellCtx.createImageData(cols, rows);
+  cellPix = new Uint32Array(cellImage.data.buffer);
+  rebuildOffsets();
+}
+function gridDims(cellSize) {
+  return { cols: Math.max(4, Math.floor(BASE_W / cellSize)), rows: Math.max(4, Math.floor(BASE_H / cellSize)) };
+}
+function resample(src, oldRows, oldCols, rows, cols) {
+  const out = new Uint8Array(rows * cols);
+  for (let r = 0; r < rows; r++) {
+    const sr = Math.min(oldRows - 1, Math.floor((r + 0.5) * oldRows / rows));
+    for (let c = 0; c < cols; c++) {
+      const sc = Math.min(oldCols - 1, Math.floor((c + 0.5) * oldCols / cols));
+      out[r * cols + c] = src[sr * oldCols + sc];
+    }
   }
+  return out;
+}
+function setCellSize(px) {
+  const size = clampInt(px, 1, 20);
+  const { cols, rows } = gridDims(size);
+  if (size === state.cellSize && cols === state.cols) return;
+  const oldGrid = state.grid, oldAcc = state.accum, oR = state.rows, oC = state.cols;
+  state.cellSize = size;
+  allocate(cols, rows);
+  if (oldGrid) {
+    state.grid = resample(oldGrid, oR, oC, rows, cols);
+    state.accum = resample(oldAcc, oR, oC, rows, cols);
+  }
+  recount();
+  clampView();
+  resizeCanvas();
+  updateStats();
+}
+function recount() {
+  let live = 0, spent = 0;
+  const g = state.grid, a = state.accum, thr = state.threshold;
+  for (let i = 0; i < g.length; i++) {
+    live += g[i];
+    if (thr > 0 && a[i] >= thr) spent++;
+  }
+  state.live = live;
+  state.spent = thr > 0 ? spent : 0;
+}
+function fillRandom() {
+  const t = state.density / 100;
+  const g = state.grid;
+  let live = 0;
+  for (let i = 0; i < g.length; i++) {
+    const v = Math.random() < t ? 1 : 0;
+    g[i] = v; live += v;
+  }
+  state.accum.fill(0);
+  state.live = live;
+  state.spent = 0;
+  state.gen = 0;
+  state.skipped = 0;
+  updateStats();
+  scheduleDraw();
+}
+function clearGrid() {
+  state.grid.fill(0);
+  state.next.fill(0);
+  state.accum.fill(0);
+  state.live = 0; state.spent = 0; state.gen = 0; state.skipped = 0;
+  updateStats();
+  scheduleDraw();
+}
 
-  function makeDefaultMask() {
-    const mask = new Array(MASK_SIZE * MASK_SIZE).fill(false);
-    for (let r = 0; r < MASK_SIZE; r++) {
-      for (let c = 0; c < MASK_SIZE; c++) {
-        const dr = r - MASK_CENTER;
-        const dc = c - MASK_CENTER;
-        const index = r * MASK_SIZE + c;
-        if (index !== CENTER_INDEX && Math.abs(dr) <= 1 && Math.abs(dc) <= 1) {
-          mask[index] = true;
+/* ============================ rates ============================ */
+function clampRate(v) { return clampInt(v, state.clampMin, state.clampMax); }
+
+function resizeRates(kind, conway) {
+  const len = state.offsets[kind].n + 1;
+  const old = state.rates[kind];
+  const next = new Array(len);
+  for (let i = 0; i < len; i++) {
+    let v;
+    if (conway) v = kind === 'birth' ? (i === 3 ? 100 : 0)
+              : kind === 'death' ? ((i === 2 || i === 3) ? 0 : 100)
+              : 0;
+    else if (Number.isFinite(old[i])) v = old[i];
+    else if (old.length) v = old[old.length - 1];
+    else v = kind === 'death' ? 100 : 0;
+    next[i] = clampRate(v);
+  }
+  state.rates[kind] = next;
+
+  if (kind === 'decay') {
+    const oldDir = state.decayDir;
+    const dir = new Int8Array(len).fill(1);
+    if (oldDir && !conway) for (let i = 0; i < Math.min(len, oldDir.length); i++) dir[i] = oldDir[i];
+    state.decayDir = dir;
+  }
+  syncProbs(kind);
+}
+function syncProbs(kind) {
+  const r = state.rates[kind];
+  const p = new Float32Array(r.length);
+  for (let i = 0; i < r.length; i++) p[i] = r[i] / 100;
+  state.probs[kind] = p;
+}
+
+/* ============================ simulation ============================ */
+function step() {
+  const rows = state.rows, cols = state.cols;
+  const grid = state.grid, next = state.next, acc = state.accum;
+  const bO = state.offsets.birth, dO = state.offsets.death, cO = state.offsets.decay;
+  const bP = state.probs.birth, dP = state.probs.death, cP = state.probs.decay;
+  const thr = state.threshold, decayOn = thr > 0, dir = state.decayDir;
+  const resetOnBirth = state.resetOnBirth;
+  const slow = state.wrap ? countWrap : countClip;
+  const rnd = Math.random;
+
+  const padR = Math.max(bO.padR, dO.padR, decayOn ? cO.padR : 0);
+  const padC = Math.max(bO.padC, dO.padC, decayOn ? cO.padC : 0);
+  let live = 0, spent = 0;
+
+  for (let r = 0; r < rows; r++) {
+    const rowInside = r >= padR && r < rows - padR;
+    const base = r * cols;
+    for (let c = 0; c < cols; c++) {
+      const i = base + c;
+      const fast = rowInside && c >= padC && c < cols - padC;
+      let forcedDead = false;
+
+      if (decayOn) {
+        const n = fast ? countFlat(grid, i, cO) : slow(grid, rows, cols, r, c, cO);
+        const p = cP[n];
+        if (p > 0 && rnd() < p) {
+          const v = acc[i] + dir[n];
+          acc[i] = v < 0 ? 0 : (v > ACC_MAX ? ACC_MAX : v);
         }
+        if (acc[i] >= thr) { forcedDead = true; spent++; }
       }
-    }
-    return mask;
-  }
 
-  function maskToOffsets(mask) {
-    const offsets = [];
-    for (let r = 0; r < MASK_SIZE; r++) {
-      for (let c = 0; c < MASK_SIZE; c++) {
-        const index = r * MASK_SIZE + c;
-        if (index === CENTER_INDEX || !mask[index]) continue;
-        offsets.push({ dr: r - MASK_CENTER, dc: c - MASK_CENTER });
-      }
-    }
-    return offsets;
-  }
-
-  function activeMaskCount(mask) {
-    let count = 0;
-    for (let i = 0; i < mask.length; i++) {
-      if (i !== CENTER_INDEX && mask[i]) count++;
-    }
-    return count;
-  }
-
-  function initializeGrid() {
-    state.cols = Math.floor(WORLD_WIDTH / state.cellSize);
-    state.rows = Math.floor(WORLD_HEIGHT / state.cellSize);
-    state.grid = new Uint8Array(state.rows * state.cols);
-    state.nextGrid = new Uint8Array(state.rows * state.cols);
-    state.generation = 0;
-    randomizeGrid(false);
-  }
-
-  function resampleGrid(oldGrid, oldRows, oldCols, newRows, newCols) {
-    const next = new Uint8Array(newRows * newCols);
-    for (let r = 0; r < newRows; r++) {
-      const oldR = Math.min(oldRows - 1, Math.floor((r + 0.5) * oldRows / newRows));
-      for (let c = 0; c < newCols; c++) {
-        const oldC = Math.min(oldCols - 1, Math.floor((c + 0.5) * oldCols / newCols));
-        next[r * newCols + c] = oldGrid[oldR * oldCols + oldC];
-      }
-    }
-    return next;
-  }
-
-  function setCellSize(value) {
-    const nextSize = clampInt(value, 1, 20);
-    if (nextSize === state.cellSize) return;
-    const oldGrid = state.grid;
-    const oldRows = state.rows;
-    const oldCols = state.cols;
-    state.cellSize = nextSize;
-    state.cols = Math.floor(WORLD_WIDTH / state.cellSize);
-    state.rows = Math.floor(WORLD_HEIGHT / state.cellSize);
-    state.grid = resampleGrid(oldGrid, oldRows, oldCols, state.rows, state.cols);
-    state.nextGrid = new Uint8Array(state.rows * state.cols);
-    countLiveCells();
-    clampView();
-    updateStats();
-    draw();
-  }
-
-  function countLiveCells() {
-    let total = 0;
-    for (let i = 0; i < state.grid.length; i++) total += state.grid[i];
-    state.liveCount = total;
-    return total;
-  }
-
-  function randomizeGrid(shouldDraw = true) {
-    const threshold = state.randomDensity / 100;
-    let live = 0;
-    for (let i = 0; i < state.grid.length; i++) {
-      const value = Math.random() < threshold ? 1 : 0;
-      state.grid[i] = value;
-      live += value;
-    }
-    state.liveCount = live;
-    state.generation = 0;
-    state.skippedSinceDraw = 0;
-    if (shouldDraw) {
-      updateStats();
-      draw();
-    }
-  }
-
-  function clearGrid() {
-    state.grid.fill(0);
-    state.nextGrid.fill(0);
-    state.liveCount = 0;
-    state.generation = 0;
-    state.skippedSinceDraw = 0;
-    updateStats();
-    draw();
-  }
-
-  function rebuildOffsetsAndRates(kind, resetConway = false) {
-    if (kind === 'birth') {
-      state.birthOffsets = maskToOffsets(state.birthMask);
-      state.birthRates = resizeRates(state.birthRates, state.birthOffsets.length, 'birth', resetConway);
-    } else {
-      state.deathOffsets = maskToOffsets(state.deathMask);
-      state.deathRates = resizeRates(state.deathRates, state.deathOffsets.length, 'death', resetConway);
-    }
-  }
-
-  function resizeRates(existing, neighborCount, kind, conwayDefaults) {
-    const length = neighborCount + 1;
-    const next = new Array(length);
-    for (let i = 0; i < length; i++) {
-      if (conwayDefaults) {
-        if (kind === 'birth') next[i] = i === 3 ? 100 : 0;
-        else next[i] = (i === 2 || i === 3) ? 0 : 100;
-      } else if (existing && Number.isFinite(existing[i])) {
-        next[i] = existing[i];
-      } else if (existing && existing.length) {
-        next[i] = existing[existing.length - 1];
-      } else {
-        next[i] = kind === 'birth' ? 0 : 100;
-      }
-      next[i] = clampRuleValue(next[i]);
-    }
-    return next;
-  }
-
-  function clampRuleValue(value) {
-    return clampInt(value, state.ruleMin, state.ruleMax);
-  }
-
-  function setRunning(running) {
-    state.isRunning = Boolean(running);
-    for (const btn of [els.startStop, els.startStopPanel]) {
-      btn.textContent = state.isRunning ? 'Pause' : 'Start';
-      btn.classList.toggle('running', state.isRunning);
-    }
-    if (state.isRunning) {
-      lastFrameTime = performance.now();
-      accumulatedMs = 0;
-      if (rafId === null) rafId = requestAnimationFrame(loop);
-    } else if (rafId !== null) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    }
-  }
-
-  function toggleRunning() {
-    setRunning(!state.isRunning);
-  }
-
-  function loop(time) {
-    if (!state.isRunning) {
-      rafId = null;
-      return;
-    }
-
-    const elapsed = Math.min(250, time - lastFrameTime);
-    lastFrameTime = time;
-    accumulatedMs += elapsed;
-    const frameMs = 1000 / state.fps;
-    let didDraw = false;
-    let safety = 0;
-
-    while (accumulatedMs >= frameMs && safety < 8) {
-      computeNextGeneration();
-      accumulatedMs -= frameMs;
-      safety++;
-
-      if (state.skippedSinceDraw >= state.frameSkip) {
-        didDraw = true;
-        state.skippedSinceDraw = 0;
-      } else {
-        state.skippedSinceDraw++;
-      }
-    }
-
-    if (didDraw) {
-      updateStats();
-      draw();
-    }
-
-    rafId = requestAnimationFrame(loop);
-  }
-
-  function countNeighbors(row, col, offsets) {
-    let count = 0;
-    const cols = state.cols;
-    const rows = state.rows;
-    const grid = state.grid;
-
-    if (state.wrapEdges) {
-      for (let i = 0; i < offsets.length; i++) {
-        let rr = row + offsets[i].dr;
-        let cc = col + offsets[i].dc;
-        if (rr < 0) rr += rows;
-        else if (rr >= rows) rr -= rows;
-        if (cc < 0) cc += cols;
-        else if (cc >= cols) cc -= cols;
-        count += grid[rr * cols + cc];
-      }
-    } else {
-      for (let i = 0; i < offsets.length; i++) {
-        const rr = row + offsets[i].dr;
-        const cc = col + offsets[i].dc;
-        if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
-          count += grid[rr * cols + cc];
-        }
-      }
-    }
-
-    return count;
-  }
-
-  function computeNextGeneration() {
-    const rows = state.rows;
-    const cols = state.cols;
-    const grid = state.grid;
-    const next = state.nextGrid;
-    let live = 0;
-
-    for (let r = 0; r < rows; r++) {
-      const base = r * cols;
-      for (let c = 0; c < cols; c++) {
-        const index = base + c;
-        let value;
-        if (grid[index] === 1) {
-          const count = countNeighbors(r, c, state.deathOffsets);
-          const deathRate = (state.deathRates[count] || 0) / 100;
-          value = Math.random() < deathRate ? 0 : 1;
+      let v = 0;
+      if (!forcedDead) {
+        if (grid[i] === 1) {
+          const n = fast ? countFlat(grid, i, dO) : slow(grid, rows, cols, r, c, dO);
+          v = rnd() < dP[n] ? 0 : 1;
         } else {
-          const count = countNeighbors(r, c, state.birthOffsets);
-          const birthRate = (state.birthRates[count] || 0) / 100;
-          value = Math.random() < birthRate ? 1 : 0;
+          const n = fast ? countFlat(grid, i, bO) : slow(grid, rows, cols, r, c, bO);
+          v = rnd() < bP[n] ? 1 : 0;
+          if (v === 1 && resetOnBirth) acc[i] = 0;
         }
-        next[index] = value;
-        live += value;
       }
+      next[i] = v;
+      live += v;
     }
-
-    state.grid = next;
-    state.nextGrid = grid;
-    state.liveCount = live;
-    state.generation += 1;
   }
 
-  function probabilityForCell(row, col, isAlive) {
-    if (isAlive) {
-      const count = countNeighbors(row, col, state.deathOffsets);
-      return (state.deathRates[count] || 0) / 100;
-    }
-    const count = countNeighbors(row, col, state.birthOffsets);
-    return (state.birthRates[count] || 0) / 100;
+  state.grid = next;
+  state.next = grid;
+  state.live = live;
+  state.spent = spent;
+  state.gen++;
+}
+
+let rafId = null, lastTime = 0, bank = 0;
+function setRunning(run) {
+  state.running = !!run;
+  const btn = $('playBtn');
+  btn.textContent = state.running ? 'Pause' : 'Start';
+  btn.classList.toggle('on', state.running);
+  if (state.running) {
+    lastTime = performance.now();
+    bank = 0;
+    if (rafId === null) rafId = requestAnimationFrame(loop);
+  } else if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
   }
+}
+function loop(now) {
+  if (!state.running) { rafId = null; return; }
+  bank += Math.min(250, now - lastTime);
+  lastTime = now;
+  const frame = 1000 / state.fps;
+  let painted = false, guard = 0;
+  while (bank >= frame && guard < 8) {
+    step();
+    bank -= frame;
+    guard++;
+    if (state.skipped >= state.frameSkip) { painted = true; state.skipped = 0; }
+    else state.skipped++;
+  }
+  if (painted) { updateStats(); draw(); }
+  rafId = requestAnimationFrame(loop);
+}
+function singleStep() {
+  setRunning(false);
+  step();
+  updateStats();
+  draw();
+}
 
-  function draw() {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = state.deadLowColor;
-    ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+/* ============================ rendering ============================ */
+const liveLUT = new Uint32Array(101);
+const deadLUT = new Uint32Array(101);
+function buildLUTs() {
+  const lo1 = hexToRgb(state.colours.liveLo), hi1 = hexToRgb(state.colours.liveHi);
+  const lo2 = hexToRgb(state.colours.deadLo), hi2 = hexToRgb(state.colours.deadHi);
+  for (let i = 0; i <= 100; i++) {
+    const t = i / 100;
+    liveLUT[i] = packRGB(
+      Math.round(lo1[0] + (hi1[0] - lo1[0]) * t),
+      Math.round(lo1[1] + (hi1[1] - lo1[1]) * t),
+      Math.round(lo1[2] + (hi1[2] - lo1[2]) * t));
+    deadLUT[i] = packRGB(
+      Math.round(lo2[0] + (hi2[0] - lo2[0]) * t),
+      Math.round(lo2[1] + (hi2[1] - lo2[1]) * t),
+      Math.round(lo2[2] + (hi2[2] - lo2[2]) * t));
+  }
+}
 
-    ctx.save();
-    ctx.scale(state.viewZoom, state.viewZoom);
-    ctx.translate(-state.viewOffsetX, -state.viewOffsetY);
+/** Paint only the cells inside the current view into the 1px-per-cell buffer. */
+function paintCells(c0, r0, c1, r1) {
+  const cols = state.cols, rows = state.rows;
+  const grid = state.grid, acc = state.accum, px = cellPix;
+  const byRates = state.colourMode === 'rates';
+  const thr = state.threshold;
+  const bR = state.rates.birth, dR = state.rates.death;
+  const bO = state.offsets.birth, dO = state.offsets.death;
+  const slow = state.wrap ? countWrap : countClip;
+  const padR = Math.max(bO.padR, dO.padR), padC = Math.max(bO.padC, dO.padC);
 
-    const cs = state.cellSize;
-    const visibleLeft = state.viewOffsetX;
-    const visibleTop = state.viewOffsetY;
-    const visibleRight = state.viewOffsetX + WORLD_WIDTH / state.viewZoom;
-    const visibleBottom = state.viewOffsetY + WORLD_HEIGHT / state.viewZoom;
-    const startC = clampInt(Math.floor(visibleLeft / cs) - 1, 0, state.cols - 1);
-    const endC = clampInt(Math.ceil(visibleRight / cs) + 1, 0, state.cols - 1);
-    const startR = clampInt(Math.floor(visibleTop / cs) - 1, 0, state.rows - 1);
-    const endR = clampInt(Math.ceil(visibleBottom / cs) + 1, 0, state.rows - 1);
-
-    const gap = state.showCellBorders && cs * state.viewZoom >= 5 ? 1 / state.viewZoom : 0;
-
-    for (let r = startR; r <= endR; r++) {
-      for (let c = startC; c <= endC; c++) {
-        const index = r * state.cols + c;
-        const alive = state.grid[index] === 1;
-        const chance = probabilityForCell(r, c, alive);
-        const rgb = alive
-          ? mixRgb(state.liveLowRGB, state.liveHighRGB, chance)
-          : mixRgb(state.deadLowRGB, state.deadHighRGB, chance);
-        ctx.fillStyle = rgbToCss(rgb);
-        ctx.fillRect(c * cs, r * cs, Math.max(1 / state.viewZoom, cs - gap), Math.max(1 / state.viewZoom, cs - gap));
+  for (let r = r0; r < r1; r++) {
+    const rowInside = r >= padR && r < rows - padR;
+    const base = r * cols;
+    for (let c = c0; c < c1; c++) {
+      const i = base + c;
+      const alive = grid[i] === 1;
+      let t;
+      if (byRates) {
+        const off = alive ? dO : bO;
+        const n = (rowInside && c >= padC && c < cols - padC)
+          ? countFlat(grid, i, off)
+          : slow(grid, rows, cols, r, c, off);
+        t = (alive ? dR[n] : bR[n]) | 0;
+      } else {
+        t = thr > 0 ? clampInt(acc[i] * 100 / thr, 0, 100) : 0;
       }
-    }
-
-    ctx.restore();
-    updateStats();
-  }
-
-  function updateStats() {
-    els.generationStat.textContent = padded(state.generation, 8);
-    els.liveStat.textContent = padded(state.liveCount, 8);
-    els.gridStat.textContent = `${String(state.cols).padStart(3, '0')}×${String(state.rows).padStart(3, '0')}`;
-    els.zoomStat.textContent = `${state.viewZoom.toFixed(2)}×`;
-  }
-
-  function pairControls(range, number, min, max, initial, onChange) {
-    function commit(source) {
-      const raw = source === range ? range.value : number.value;
-      let value = clampInt(raw, min(), max());
-      range.min = String(min());
-      number.min = String(min());
-      range.max = String(max());
-      number.max = String(max());
-      range.value = String(value);
-      number.value = String(value);
-      onChange(value);
-    }
-    range.value = String(initial);
-    number.value = String(initial);
-    range.addEventListener('input', () => commit(range));
-    number.addEventListener('input', () => commit(number));
-    number.addEventListener('blur', () => commit(number));
-    commit(range);
-    return { commit: () => commit(range) };
-  }
-
-  function setupBasicControls() {
-    pairControls(els.fpsRange, els.fpsNumber, () => 1, () => 60, state.fps, (v) => { state.fps = v; });
-    pairControls(els.frameSkipRange, els.frameSkipNumber, () => 0, () => 120, state.frameSkip, (v) => { state.frameSkip = v; });
-    pairControls(els.densityRange, els.densityNumber, () => 0, () => 100, state.randomDensity, (v) => { state.randomDensity = v; });
-    pairControls(els.cellSizeRange, els.cellSizeNumber, () => 1, () => 20, state.cellSize, (v) => { setCellSize(v); });
-    pairControls(els.brushRange, els.brushNumber, () => 1, () => 51, state.brushSize, (v) => {
-      state.brushSize = v % 2 === 0 ? v + 1 : v;
-      els.brushRange.value = String(state.brushSize);
-      els.brushNumber.value = String(state.brushSize);
-    });
-
-    pairControls(els.ruleMinRange, els.ruleMinNumber, () => 0, () => state.ruleMax, state.ruleMin, (v) => {
-      state.ruleMin = v;
-      enforceRuleRange();
-    });
-    pairControls(els.ruleMaxRange, els.ruleMaxNumber, () => state.ruleMin, () => 100, state.ruleMax, (v) => {
-      state.ruleMax = v;
-      enforceRuleRange();
-    });
-    pairControls(els.birthMasterRange, els.birthMasterNumber, () => state.ruleMin, () => state.ruleMax, 0, () => {});
-    pairControls(els.deathMasterRange, els.deathMasterNumber, () => state.ruleMin, () => state.ruleMax, 100, () => {});
-
-    els.wrapEdges.addEventListener('change', () => { state.wrapEdges = els.wrapEdges.checked; draw(); });
-    els.showCellBorders.addEventListener('change', () => { state.showCellBorders = els.showCellBorders.checked; draw(); });
-    els.lineMode.addEventListener('change', () => {});
-
-    for (const [input, textId, key, rgbKey] of [
-      [els.liveLowColor, 'liveLowText', 'liveLowColor', 'liveLowRGB'],
-      [els.liveHighColor, 'liveHighText', 'liveHighColor', 'liveHighRGB'],
-      [els.deadLowColor, 'deadLowText', 'deadLowColor', 'deadLowRGB'],
-      [els.deadHighColor, 'deadHighText', 'deadHighColor', 'deadHighRGB']
-    ]) {
-      input.addEventListener('input', () => {
-        state[key] = input.value.toLowerCase();
-        state[rgbKey] = hexToRgb(state[key]);
-        $(textId).textContent = state[key];
-        draw();
-      });
+      px[i] = alive ? liveLUT[t] : deadLUT[t];
     }
   }
+}
 
-  function enforceRuleRange() {
-    els.ruleMinRange.max = els.ruleMinNumber.max = String(state.ruleMax);
-    els.ruleMaxRange.min = els.ruleMaxNumber.min = String(state.ruleMin);
-    state.birthRates = state.birthRates.map(clampRuleValue);
-    state.deathRates = state.deathRates.map(clampRuleValue);
-    const birthMaster = clampRuleValue(els.birthMasterRange.value);
-    const deathMaster = clampRuleValue(els.deathMasterRange.value);
-    for (const el of [els.birthMasterRange, els.birthMasterNumber, els.deathMasterRange, els.deathMasterNumber]) {
-      el.min = String(state.ruleMin);
-      el.max = String(state.ruleMax);
+function draw() {
+  const cw = canvas.width, ch = canvas.height;
+  if (!cw || !ch) return;
+  const { zoom, x, y } = state.view;
+  const viewCols = state.cols / zoom, viewRows = state.rows / zoom;
+
+  const c0 = clampInt(Math.floor(x), 0, state.cols - 1);
+  const r0 = clampInt(Math.floor(y), 0, state.rows - 1);
+  const c1 = clampInt(Math.ceil(x + viewCols), c0 + 1, state.cols);
+  const r1 = clampInt(Math.ceil(y + viewRows), r0 + 1, state.rows);
+
+  paintCells(c0, r0, c1, r1);
+  cellCtx.putImageData(cellImage, 0, 0, c0, r0, c1 - c0, r1 - r0);
+
+  const scale = cw / viewCols;                 // device px per cell
+  const dx = (c0 - x) * scale, dy = (r0 - y) * scale;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = state.colours.deadLo;
+  ctx.fillRect(0, 0, cw, ch);
+  ctx.drawImage(cellCanvas, c0, r0, c1 - c0, r1 - r0, dx, dy, (c1 - c0) * scale, (r1 - r0) * scale);
+
+  if (state.borders && scale >= 5) {
+    ctx.strokeStyle = 'rgba(0,0,0,.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let c = c0; c <= c1; c++) {
+      const px = Math.round(dx + (c - c0) * scale) + 0.5;
+      ctx.moveTo(px, 0); ctx.lineTo(px, ch);
     }
-    els.birthMasterRange.value = els.birthMasterNumber.value = String(birthMaster);
-    els.deathMasterRange.value = els.deathMasterNumber.value = String(deathMaster);
-    renderRules('birth');
-    renderRules('death');
-    draw();
+    for (let r = r0; r <= r1; r++) {
+      const py = Math.round(dy + (r - r0) * scale) + 0.5;
+      ctx.moveTo(0, py); ctx.lineTo(cw, py);
+    }
+    ctx.stroke();
   }
+}
 
-  function renderRules(kind) {
-    const isBirth = kind === 'birth';
-    const rates = isBirth ? state.birthRates : state.deathRates;
-    const container = isBirth ? els.birthRules : els.deathRules;
-    const countLabel = isBirth ? els.birthRuleCount : els.deathRuleCount;
-    const max = rates.length - 1;
-    countLabel.textContent = `0–${max} hits`;
+let drawQueued = false;
+function scheduleDraw() {
+  if (drawQueued) return;
+  drawQueued = true;
+  requestAnimationFrame(() => { drawQueued = false; draw(); });
+}
 
-    const fragment = document.createDocumentFragment();
+function resizeCanvas() {
+  const frame = $('frame');
+  const box = frame.getBoundingClientRect();
+  if (box.width < 8 || box.height < 8) return;
+  const aspect = state.cols / state.rows;
+  let w = box.width - 2, h = box.height - 2;
+  if (w / h > aspect) w = h * aspect; else h = w / aspect;
+  w = Math.max(60, Math.floor(w));
+  h = Math.max(40, Math.floor(h));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  ctx.imageSmoothingEnabled = false;
+  draw();
+}
+
+/* ============================ view ============================ */
+function clampView() {
+  const v = state.view;
+  v.zoom = clamp(v.zoom, ZOOM_MIN, ZOOM_MAX);
+  v.x = clamp(v.x, 0, Math.max(0, state.cols - state.cols / v.zoom));
+  v.y = clamp(v.y, 0, Math.max(0, state.rows - state.rows / v.zoom));
+}
+function zoomAt(u, v, factor) {
+  const view = state.view;
+  const z0 = view.zoom;
+  const z1 = clamp(z0 * factor, ZOOM_MIN, ZOOM_MAX);
+  if (z1 === z0) return;
+  const wx = view.x + u * (state.cols / z0);
+  const wy = view.y + v * (state.rows / z0);
+  view.zoom = z1;
+  view.x = wx - u * (state.cols / z1);
+  view.y = wy - v * (state.rows / z1);
+  clampView();
+  updateStats();
+  scheduleDraw();
+}
+function resetView() {
+  state.view.zoom = 1; state.view.x = 0; state.view.y = 0;
+  updateStats();
+  scheduleDraw();
+}
+
+/* ============================ stats ============================ */
+function updateStats() {
+  $('genStat').textContent = fmt(state.gen);
+  $('liveStat').textContent = fmt(state.live);
+  $('sizeStat').textContent = state.cols + '×' + state.rows;
+  $('gridChip').textContent = state.cols + ' × ' + state.rows;
+  $('zoomStat').textContent = state.view.zoom.toFixed(2) + '×';
+  const on = state.threshold > 0;
+  $('spentStat').classList.toggle('off', !on);
+  $('spentVal').textContent = on ? fmt(state.spent) : '—';
+}
+
+/* ============================ paired range + number ============================ */
+function bindPair(rangeId, numberId, onChange, bounds) {
+  const range = $(rangeId), number = $(numberId);
+  const limits = () => (bounds ? bounds() : { min: Number(range.min), max: Number(range.max) });
+  function commit(src, normalise) {
+    const { min, max } = limits();
+    range.min = number.min = String(min);
+    range.max = number.max = String(max);
+    if (src === number && number.value === '') return;
+    const v = clampInt(src.value, min, max);
+    if (src === range) number.value = String(v);
+    else range.value = String(v);
+    if (normalise) { range.value = String(v); number.value = String(v); }
+    onChange(v);
+  }
+  range.addEventListener('input', () => commit(range, false));
+  number.addEventListener('input', () => commit(number, false));
+  number.addEventListener('change', () => commit(number, true));
+  number.addEventListener('blur', () => commit(number, true));
+  return {
+    value: () => clampInt(range.value, limits().min, limits().max),
+    set(v) { range.value = number.value = String(v); commit(range, true); },
+    refresh() { commit(range, true); }
+  };
+}
+
+/* ============================ rule rows ============================ */
+function ruleListFor(kind) { return $(kind + 'Rules'); }
+
+function renderRules(kind) {
+  const list = ruleListFor(kind);
+  const rates = state.rates[kind];
+  const isDecay = kind === 'decay';
+
+  if (list.childElementCount !== rates.length) {
+    const frag = document.createDocumentFragment();
     for (let i = 0; i < rates.length; i++) {
       const row = document.createElement('div');
-      row.className = `rule-row ${isBirth ? 'birth' : 'death'}`;
+      row.className = 'rule-row ' + kind;
 
       const label = document.createElement('label');
-      label.htmlFor = `${kind}-rate-${i}`;
-      label.textContent = `Count ${i}`;
+      label.htmlFor = kind + '-r-' + i;
+      label.textContent = i + ' live';
+      row.append(label);
+
+      if (isDecay) {
+        const wrap = document.createElement('span');
+        wrap.className = 'dir';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.dataset.kind = kind;
+        box.dataset.index = String(i);
+        box.dataset.role = 'dir';
+        box.title = 'Count down instead of up';
+        box.setAttribute('aria-label', 'Neighbour count ' + i + ': count down');
+        wrap.append(box);
+        row.append(wrap);
+      }
 
       const range = document.createElement('input');
       range.type = 'range';
-      range.id = `${kind}-rate-${i}`;
-      range.min = String(state.ruleMin);
-      range.max = String(state.ruleMax);
+      range.id = kind + '-r-' + i;
       range.step = '1';
-      range.value = String(rates[i]);
       range.dataset.kind = kind;
       range.dataset.index = String(i);
 
-      const number = document.createElement('input');
-      number.type = 'number';
-      number.min = String(state.ruleMin);
-      number.max = String(state.ruleMax);
-      number.step = '1';
-      number.value = String(rates[i]);
-      number.dataset.kind = kind;
-      number.dataset.index = String(i);
-      number.setAttribute('aria-label', `${kind} rate for count ${i}`);
+      const num = document.createElement('input');
+      num.type = 'number';
+      num.step = '1';
+      num.dataset.kind = kind;
+      num.dataset.index = String(i);
+      num.setAttribute('aria-label', kind + ' rate at ' + i + ' live neighbours');
 
-      row.append(label, range, number);
-      fragment.append(row);
+      row.append(range, num);
+      frag.append(row);
     }
-
-    container.replaceChildren(fragment);
+    list.replaceChildren(frag);
   }
 
-  function handleRuleInput(event) {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement)) return;
-    const kind = target.dataset.kind;
-    if (kind !== 'birth' && kind !== 'death') return;
-    const index = Number(target.dataset.index);
-    if (!Number.isInteger(index)) return;
-    const value = clampRuleValue(target.value);
-    const rates = kind === 'birth' ? state.birthRates : state.deathRates;
-    rates[index] = value;
-
-    const row = target.closest('.rule-row');
-    if (row) {
-      for (const input of row.querySelectorAll('input')) input.value = String(value);
+  const rows = list.children;
+  for (let i = 0; i < rates.length; i++) {
+    const row = rows[i];
+    const inputs = row.querySelectorAll('input[type="range"],input[type="number"]');
+    for (const el of inputs) {
+      el.min = String(state.clampMin);
+      el.max = String(state.clampMax);
+      el.value = String(rates[i]);
     }
-    draw();
-  }
-
-  function applyMaster(kind) {
-    const isBirth = kind === 'birth';
-    const value = clampRuleValue(isBirth ? els.birthMasterRange.value : els.deathMasterRange.value);
-    const rates = isBirth ? state.birthRates : state.deathRates;
-    rates.fill(value);
-    renderRules(kind);
-    draw();
-  }
-
-  function randomizeRuleRates() {
-    for (let i = 0; i < state.birthRates.length; i++) {
-      state.birthRates[i] = clampRuleValue(Math.round(state.ruleMin + Math.random() * (state.ruleMax - state.ruleMin)));
-    }
-    for (let i = 0; i < state.deathRates.length; i++) {
-      state.deathRates[i] = clampRuleValue(Math.round(state.ruleMin + Math.random() * (state.ruleMax - state.ruleMin)));
-    }
-    renderRules('birth');
-    renderRules('death');
-    draw();
-  }
-
-  function applyConwayDefaults() {
-    state.birthMask = makeDefaultMask();
-    state.deathMask = makeDefaultMask();
-    rebuildOffsetsAndRates('birth', true);
-    rebuildOffsetsAndRates('death', true);
-    renderNeighborGrid('birth');
-    renderNeighborGrid('death');
-    renderRules('birth');
-    renderRules('death');
-    draw();
-  }
-
-  function renderNeighborGrid(kind) {
-    const isBirth = kind === 'birth';
-    const mask = isBirth ? state.birthMask : state.deathMask;
-    const grid = isBirth ? els.birthNeighborGrid : els.deathNeighborGrid;
-    const countEl = isBirth ? els.birthNeighborCount : els.deathNeighborCount;
-    const fragment = document.createDocumentFragment();
-
-    for (let i = 0; i < MASK_SIZE * MASK_SIZE; i++) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'neighbor-cell';
-      btn.dataset.kind = kind;
-      btn.dataset.index = String(i);
-      btn.setAttribute('aria-label', `${kind} neighbor cell ${i}`);
-      if (i === CENTER_INDEX) {
-        btn.classList.add('center');
-        btn.disabled = true;
-      } else if (mask[i]) {
-        btn.classList.add('active', isBirth ? 'birth' : 'death');
-        btn.setAttribute('aria-pressed', 'true');
-      } else {
-        btn.setAttribute('aria-pressed', 'false');
-      }
-      fragment.append(btn);
-    }
-
-    grid.replaceChildren(fragment);
-    countEl.textContent = `${activeMaskCount(mask)} active`;
-  }
-
-  function toggleNeighborCell(kind, index) {
-    if (index === CENTER_INDEX) return;
-    const mask = kind === 'birth' ? state.birthMask : state.deathMask;
-    if (mask[index] && activeMaskCount(mask) <= 1) return;
-    mask[index] = !mask[index];
-    rebuildOffsetsAndRates(kind, false);
-    renderNeighborGrid(kind);
-    renderRules(kind);
-    draw();
-  }
-
-  function setMask(kind, mode) {
-    const mask = kind === 'birth' ? state.birthMask : state.deathMask;
-    if (mode === 'default') {
-      const next = makeDefaultMask();
-      for (let i = 0; i < mask.length; i++) mask[i] = next[i];
-    } else if (mode === 'all') {
-      for (let i = 0; i < mask.length; i++) mask[i] = i !== CENTER_INDEX;
-    } else if (mode === 'random') {
-      let count = 0;
-      for (let i = 0; i < mask.length; i++) {
-        mask[i] = i !== CENTER_INDEX && Math.random() < 0.35;
-        if (mask[i]) count++;
-      }
-      if (count === 0) mask[CENTER_INDEX - 1] = true;
-    }
-    rebuildOffsetsAndRates(kind, false);
-    renderNeighborGrid(kind);
-    renderRules(kind);
-    draw();
-  }
-
-  function setupTabs() {
-    document.querySelectorAll('.tab-button').forEach((button) => {
-      button.addEventListener('click', () => {
-        const tab = button.dataset.tab;
-        document.querySelectorAll('.tab-button').forEach((b) => b.classList.toggle('active', b === button));
-        document.querySelectorAll('.tab-panel').forEach((panel) => panel.classList.toggle('active', panel.id === `tab-${tab}`));
-      });
-    });
-
-    document.querySelectorAll('.subtab-button').forEach((button) => {
-      button.addEventListener('click', () => {
-        const tab = button.dataset.neighborTab;
-        document.querySelectorAll('.subtab-button').forEach((b) => b.classList.toggle('active', b === button));
-        document.querySelectorAll('.neighbor-pane').forEach((panel) => panel.classList.toggle('active', panel.id === `neighbor-${tab}`));
-      });
-    });
-  }
-
-  function setupButtons() {
-    for (const btn of [els.startStop, els.startStopPanel]) btn.addEventListener('click', toggleRunning);
-    for (const btn of [els.stepBtn, els.stepPanel]) btn.addEventListener('click', () => {
-      setRunning(false);
-      computeNextGeneration();
-      updateStats();
-      draw();
-    });
-    for (const btn of [els.randomizeBtn, els.randomizePanel]) btn.addEventListener('click', () => {
-      const wasRunning = state.isRunning;
-      randomizeGrid(true);
-      if (wasRunning) setRunning(true);
-    });
-    for (const btn of [els.clearBtn, els.clearPanel]) btn.addEventListener('click', () => {
-      setRunning(false);
-      clearGrid();
-    });
-    els.panelToggle.addEventListener('click', () => {
-      els.controlPanel.classList.toggle('collapsed');
-      window.setTimeout(draw, 60);
-    });
-    els.resetViewBtn.addEventListener('click', () => {
-      state.viewZoom = 1;
-      state.viewOffsetX = 0;
-      state.viewOffsetY = 0;
-      draw();
-    });
-    els.applyBirthMaster.addEventListener('click', () => applyMaster('birth'));
-    els.applyDeathMaster.addEventListener('click', () => applyMaster('death'));
-    els.randomRuleBtn.addEventListener('click', randomizeRuleRates);
-    els.conwayBtn.addEventListener('click', applyConwayDefaults);
-
-    document.querySelectorAll('[data-mask-action]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const [kind, mode] = button.dataset.maskAction.split('-');
-        setMask(kind, mode);
-      });
-    });
-  }
-
-  function setupRuleEvents() {
-    els.birthRules.addEventListener('input', handleRuleInput);
-    els.birthRules.addEventListener('change', handleRuleInput);
-    els.deathRules.addEventListener('input', handleRuleInput);
-    els.deathRules.addEventListener('change', handleRuleInput);
-    els.birthNeighborGrid.addEventListener('click', (event) => {
-      const target = event.target.closest('.neighbor-cell');
-      if (!target || target.disabled) return;
-      toggleNeighborCell('birth', Number(target.dataset.index));
-    });
-    els.deathNeighborGrid.addEventListener('click', (event) => {
-      const target = event.target.closest('.neighbor-cell');
-      if (!target || target.disabled) return;
-      toggleNeighborCell('death', Number(target.dataset.index));
-    });
-  }
-
-  function clampView() {
-    state.viewZoom = clamp(state.viewZoom, 1, 64);
-    const viewW = WORLD_WIDTH / state.viewZoom;
-    const viewH = WORLD_HEIGHT / state.viewZoom;
-    state.viewOffsetX = clamp(state.viewOffsetX, 0, Math.max(0, WORLD_WIDTH - viewW));
-    state.viewOffsetY = clamp(state.viewOffsetY, 0, Math.max(0, WORLD_HEIGHT - viewH));
-  }
-
-  function canvasPointFromClient(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (clientX - rect.left) * WORLD_WIDTH / rect.width,
-      y: (clientY - rect.top) * WORLD_HEIGHT / rect.height
-    };
-  }
-
-  function worldFromClient(clientX, clientY) {
-    const p = canvasPointFromClient(clientX, clientY);
-    return {
-      x: state.viewOffsetX + p.x / state.viewZoom,
-      y: state.viewOffsetY + p.y / state.viewZoom,
-      canvasX: p.x,
-      canvasY: p.y
-    };
-  }
-
-  function cellFromWorld(world) {
-    return {
-      c: clampInt(Math.floor(world.x / state.cellSize), 0, state.cols - 1),
-      r: clampInt(Math.floor(world.y / state.cellSize), 0, state.rows - 1)
-    };
-  }
-
-  function applyBrush(c, r, value) {
-    const radius = Math.floor(state.brushSize / 2);
-    let changed = false;
-    for (let rr = r - radius; rr <= r + radius; rr++) {
-      if (rr < 0 || rr >= state.rows) continue;
-      for (let cc = c - radius; cc <= c + radius; cc++) {
-        if (cc < 0 || cc >= state.cols) continue;
-        const index = rr * state.cols + cc;
-        if (state.grid[index] !== value) {
-          state.grid[index] = value;
-          changed = true;
-        }
-      }
-    }
-    return changed;
-  }
-
-  function drawLineCells(a, b, value) {
-    const dx = b.c - a.c;
-    const dy = b.r - a.r;
-    const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
-    let changed = false;
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      const c = Math.round(a.c + dx * t);
-      const r = Math.round(a.r + dy * t);
-      changed = applyBrush(c, r, value) || changed;
-    }
-    return changed;
-  }
-
-  function startDrawing(pointerEvent) {
-    const world = worldFromClient(pointerEvent.clientX, pointerEvent.clientY);
-    const cell = cellFromWorld(world);
-    const index = cell.r * state.cols + cell.c;
-    strokeState = state.grid[index] === 1 ? 0 : 1;
-    drawing = true;
-    lastPaintCell = cell;
-    if (applyBrush(cell.c, cell.r, strokeState)) {
-      countLiveCells();
-      updateStats();
-      draw();
+    if (isDecay) {
+      const down = state.decayDir[i] < 0;
+      row.querySelector('input[type="checkbox"]').checked = down;
+      row.classList.toggle('down', down);
     }
   }
+  const chip = $(kind + 'MaskChip');
+  if (chip) chip.textContent = maskCount(state.masks[kind]) + ' cells';
+}
 
-  function continueDrawing(pointerEvent) {
-    if (!drawing) return;
-    const world = worldFromClient(pointerEvent.clientX, pointerEvent.clientY);
-    const cell = cellFromWorld(world);
-    let changed;
-    if (els.lineMode.checked && lastPaintCell) {
-      changed = drawLineCells(lastPaintCell, cell, strokeState);
-    } else {
-      changed = applyBrush(cell.c, cell.r, strokeState);
+function onRuleInput(event) {
+  const el = event.target;
+  if (!(el instanceof HTMLInputElement)) return;
+  const kind = el.dataset.kind;
+  if (!kind) return;
+  const idx = Number(el.dataset.index);
+  if (!Number.isInteger(idx)) return;
+
+  if (el.dataset.role === 'dir') {
+    state.decayDir[idx] = el.checked ? -1 : 1;
+    el.closest('.rule-row').classList.toggle('down', el.checked);
+    return;
+  }
+  if (el.value === '' && el.type === 'number') return;
+  const v = clampRate(el.value);
+  state.rates[kind][idx] = v;
+  state.probs[kind][idx] = v / 100;
+  const row = el.closest('.rule-row');
+  for (const sib of row.querySelectorAll('input[type="range"],input[type="number"]')) {
+    if (sib !== el) sib.value = String(v);
+  }
+  if (kind !== 'decay') scheduleDraw();
+}
+
+/* ============================ mask grids ============================ */
+function renderMask(kind) {
+  const host = $(kind + 'Mask');
+  if (!host.childElementCount) {
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < MASK_N * MASK_N; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.index = String(i);
+      if (i === CENTER) { b.className = 'core'; b.disabled = true; b.setAttribute('aria-label', 'Cell itself'); }
+      else b.setAttribute('aria-label', 'Offset ' + (((i / MASK_N) | 0) - MASK_C) + ',' + ((i % MASK_N) - MASK_C));
+      frag.append(b);
     }
-    lastPaintCell = cell;
-    if (changed) {
-      countLiveCells();
-      updateStats();
-      draw();
+    host.replaceChildren(frag);
+  }
+  const mask = state.masks[kind];
+  const kids = host.children;
+  for (let i = 0; i < kids.length; i++) {
+    if (i === CENTER) continue;
+    const on = !!mask[i];
+    kids[i].classList.toggle('on', on);
+    kids[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  $(kind + 'MaskChip').textContent = maskCount(mask) + ' cells';
+}
+function afterMaskChange(kind) {
+  state.offsets[kind] = buildOffsets(state.masks[kind], state.cols);
+  resizeRates(kind, false);
+  renderMask(kind);
+  renderRules(kind);
+  scheduleDraw();
+}
+function toggleMaskCell(kind, i) {
+  const mask = state.masks[kind];
+  if (i === CENTER) return;
+  if (mask[i] && maskCount(mask) <= 1) return;   // never leave a mask empty
+  mask[i] = mask[i] ? 0 : 1;
+  afterMaskChange(kind);
+}
+function setMask(kind, mode) {
+  const mask = state.masks[kind];
+  if (mode === 'moore') {
+    mask.set(mooreMask());
+  } else if (mode === 'all') {
+    for (let i = 0; i < mask.length; i++) mask[i] = i === CENTER ? 0 : 1;
+  } else if (mode === 'random') {
+    let n = 0;
+    for (let i = 0; i < mask.length; i++) {
+      mask[i] = i !== CENTER && Math.random() < 0.35 ? 1 : 0;
+      n += mask[i];
+    }
+    if (!n) mask[CENTER - 1] = 1;
+  }
+  afterMaskChange(kind);
+}
+
+/* ============================ presets ============================ */
+const PRESETS = {
+  conway:   { birth: (i) => (i === 3 ? 100 : 0),               death: (i) => ((i === 2 || i === 3) ? 0 : 100) },
+  highlife: { birth: (i) => ((i === 3 || i === 6) ? 100 : 0),  death: (i) => ((i === 2 || i === 3) ? 0 : 100) },
+  seeds:    { birth: (i) => (i === 2 ? 100 : 0),               death: () => 100 },
+  ember:    {
+    // Conway loosened just enough to regrow, plus a counter that burns crowds
+    // out (4+ neighbours climb fast) and lets empty ground recover (0-1 fall).
+    birth: (i) => (i === 3 ? 100 : i === 2 ? 12 : i === 1 ? 2 : 0),
+    death: (i) => ((i === 2 || i === 3) ? 4 : 100),
+    threshold: 16,
+    decay: (i) => (i === 0 ? 50 : i === 1 ? 25 : i <= 3 ? 10 : 70),
+    dir:   (i) => (i <= 1 ? -1 : 1)
+  }
+};
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  state.clampMin = 0; state.clampMax = 100;
+  ui.clampMin.set(0); ui.clampMax.set(100);
+
+  for (const k of KINDS) state.masks[k].set(mooreMask());
+  rebuildOffsets();
+
+  for (const k of KINDS) {
+    const len = state.offsets[k].n + 1;
+    const fn = p[k];
+    state.rates[k] = Array.from({ length: len }, (_, i) => (fn ? clampRate(fn(i)) : 0));
+    if (k === 'decay') {
+      state.decayDir = new Int8Array(len).fill(1);
+      if (p.dir) for (let i = 0; i < len; i++) state.decayDir[i] = p.dir(i) < 0 ? -1 : 1;
+    }
+    syncProbs(k);
+    renderMask(k);
+    renderRules(k);
+  }
+  state.threshold = p.threshold || 0;
+  ui.threshold.set(state.threshold);
+  recount();
+  syncClampChip();
+  updateStats();
+  scheduleDraw();
+}
+
+/* ============================ pointer input ============================ */
+const pointers = new Map();
+let painting = false, panning = false, strokeValue = 1, lastCell = null, lastPan = null, pinch = null;
+
+function normPoint(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  return { u: (clientX - rect.left) / rect.width, v: (clientY - rect.top) / rect.height, rect };
+}
+function cellAt(clientX, clientY) {
+  const { u, v } = normPoint(clientX, clientY);
+  const view = state.view;
+  return {
+    c: clampInt(Math.floor(view.x + u * (state.cols / view.zoom)), 0, state.cols - 1),
+    r: clampInt(Math.floor(view.y + v * (state.rows / view.zoom)), 0, state.rows - 1)
+  };
+}
+function paintBlock(c, r, value) {
+  const rad = (state.brush - 1) >> 1;
+  const cols = state.cols, rows = state.rows, g = state.grid;
+  let delta = 0;
+  for (let rr = r - rad; rr <= r + rad; rr++) {
+    if (rr < 0 || rr >= rows) continue;
+    const base = rr * cols;
+    for (let cc = c - rad; cc <= c + rad; cc++) {
+      if (cc < 0 || cc >= cols) continue;
+      const i = base + cc;
+      if (g[i] !== value) { g[i] = value; delta += value ? 1 : -1; }
     }
   }
-
-  function zoomAt(canvasX, canvasY, factor) {
-    const beforeX = state.viewOffsetX + canvasX / state.viewZoom;
-    const beforeY = state.viewOffsetY + canvasY / state.viewZoom;
-    state.viewZoom = clamp(state.viewZoom * factor, 1, 64);
-    state.viewOffsetX = beforeX - canvasX / state.viewZoom;
-    state.viewOffsetY = beforeY - canvasY / state.viewZoom;
-    clampView();
-    draw();
+  return delta;
+}
+function paintLine(a, b, value) {
+  const dc = b.c - a.c, dr = b.r - a.r;
+  const steps = Math.max(Math.abs(dc), Math.abs(dr), 1);
+  let delta = 0;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    delta += paintBlock(Math.round(a.c + dc * t), Math.round(a.r + dr * t), value);
   }
+  return delta;
+}
+function commitPaint(delta) {
+  if (!delta) return;
+  state.live += delta;
+  updateStats();
+  scheduleDraw();
+}
+function startPinch() {
+  const pts = [...pointers.values()];
+  if (pts.length < 2) return;
+  painting = false; lastCell = null;
+  const a = normPoint(pts[0].x, pts[0].y), b = normPoint(pts[1].x, pts[1].y);
+  const rect = a.rect;
+  pinch = {
+    dist: Math.hypot((b.u - a.u) * rect.width, (b.v - a.v) * rect.height) || 1,
+    zoom: state.view.zoom,
+    wx: state.view.x + ((a.u + b.u) / 2) * (state.cols / state.view.zoom),
+    wy: state.view.y + ((a.v + b.v) / 2) * (state.rows / state.view.zoom)
+  };
+}
+function updatePinch() {
+  const pts = [...pointers.values()];
+  if (pts.length < 2 || !pinch) return;
+  const a = normPoint(pts[0].x, pts[0].y), b = normPoint(pts[1].x, pts[1].y);
+  const rect = a.rect;
+  const dist = Math.hypot((b.u - a.u) * rect.width, (b.v - a.v) * rect.height) || 1;
+  const mu = (a.u + b.u) / 2, mv = (a.v + b.v) / 2;
+  const view = state.view;
+  view.zoom = clamp(pinch.zoom * (dist / pinch.dist), ZOOM_MIN, ZOOM_MAX);
+  view.x = pinch.wx - mu * (state.cols / view.zoom);
+  view.y = pinch.wy - mv * (state.rows / view.zoom);
+  clampView();
+  updateStats();
+  scheduleDraw();
+}
+function setupPointer() {
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  function panByCanvasDelta(dx, dy) {
-    state.viewOffsetX -= dx / state.viewZoom;
-    state.viewOffsetY -= dy / state.viewZoom;
-    clampView();
-    draw();
-  }
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const { u, v } = normPoint(e.clientX, e.clientY);
+    zoomAt(u, v, e.deltaY < 0 ? 1.14 : 1 / 1.14);
+  }, { passive: false });
 
-  function getTwoPointerInfo() {
-    const values = Array.from(activePointers.values());
-    if (values.length < 2) return null;
-    const a = values[0];
-    const b = values[1];
-    const pa = canvasPointFromClient(a.clientX, a.clientY);
-    const pb = canvasPointFromClient(b.clientX, b.clientY);
-    const cx = (pa.x + pb.x) / 2;
-    const cy = (pa.y + pb.y) / 2;
-    const dx = pb.x - pa.x;
-    const dy = pb.y - pa.y;
-    return { cx, cy, distance: Math.hypot(dx, dy) || 1 };
-  }
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-  function beginPinch() {
-    const info = getTwoPointerInfo();
-    if (!info) return;
-    drawing = false;
-    lastPaintCell = null;
-    pinchState = {
-      startDistance: info.distance,
-      startCx: info.cx,
-      startCy: info.cy,
-      startZoom: state.viewZoom,
-      startOffsetX: state.viewOffsetX,
-      startOffsetY: state.viewOffsetY,
-      worldAtCenterX: state.viewOffsetX + info.cx / state.viewZoom,
-      worldAtCenterY: state.viewOffsetY + info.cy / state.viewZoom
-    };
-  }
+    if (e.pointerType === 'touch' && pointers.size >= 2) { startPinch(); return; }
+    if (e.button === 1 || (e.button === 2 && e.pointerType === 'mouse')) {
+      panning = true; painting = false;
+      lastPan = { x: e.clientX, y: e.clientY };
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
 
-  function updatePinch() {
-    const info = getTwoPointerInfo();
-    if (!info || !pinchState) return;
-    const scale = info.distance / pinchState.startDistance;
-    state.viewZoom = clamp(pinchState.startZoom * scale, 1, 64);
-    state.viewOffsetX = pinchState.worldAtCenterX - info.cx / state.viewZoom;
-    state.viewOffsetY = pinchState.worldAtCenterY - info.cy / state.viewZoom;
-    clampView();
-    draw();
-  }
+    const cell = cellAt(e.clientX, e.clientY);
+    strokeValue = state.grid[cell.r * state.cols + cell.c] === 1 ? 0 : 1;
+    painting = true;
+    lastCell = cell;
+    commitPaint(paintBlock(cell.c, cell.r, strokeValue));
+  });
 
-  function setupCanvasInteractions() {
-    canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+  canvas.addEventListener('pointermove', (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    canvas.addEventListener('wheel', (event) => {
-      event.preventDefault();
-      const p = canvasPointFromClient(event.clientX, event.clientY);
-      const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
-      zoomAt(p.x, p.y, factor);
-    }, { passive: false });
+    if (pinch && pointers.size >= 2) { e.preventDefault(); updatePinch(); return; }
 
-    canvas.addEventListener('pointerdown', (event) => {
-      event.preventDefault();
-      canvas.setPointerCapture(event.pointerId);
-      activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY, pointerType: event.pointerType });
-
-      if (event.pointerType === 'touch' && activePointers.size >= 2) {
-        beginPinch();
-        return;
-      }
-
-      if (event.button === 1) {
-        panning = true;
-        drawing = false;
-        lastPanPoint = canvasPointFromClient(event.clientX, event.clientY);
-        canvas.style.cursor = 'grabbing';
-        return;
-      }
-
-      if (event.button === 0 || event.pointerType === 'touch' || event.pointerType === 'pen') {
-        startDrawing(event);
-      }
-    });
-
-    canvas.addEventListener('pointermove', (event) => {
-      if (activePointers.has(event.pointerId)) {
-        activePointers.set(event.pointerId, { clientX: event.clientX, clientY: event.clientY, pointerType: event.pointerType });
-      }
-
-      if (pinchState && activePointers.size >= 2) {
-        event.preventDefault();
-        updatePinch();
-        return;
-      }
-
-      if (panning && lastPanPoint) {
-        event.preventDefault();
-        const p = canvasPointFromClient(event.clientX, event.clientY);
-        panByCanvasDelta(p.x - lastPanPoint.x, p.y - lastPanPoint.y);
-        lastPanPoint = p;
-        return;
-      }
-
-      if (drawing) {
-        event.preventDefault();
-        continueDrawing(event);
-      }
-    });
-
-    function endPointer(event) {
-      if (activePointers.has(event.pointerId)) activePointers.delete(event.pointerId);
-      if (activePointers.size < 2) pinchState = null;
-      if (activePointers.size === 0) {
-        drawing = false;
-        panning = false;
-        lastPaintCell = null;
-        lastPanPoint = null;
-        canvas.style.cursor = 'crosshair';
-      }
+    if (panning && lastPan) {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const view = state.view;
+      view.x -= ((e.clientX - lastPan.x) / rect.width) * (state.cols / view.zoom);
+      view.y -= ((e.clientY - lastPan.y) / rect.height) * (state.rows / view.zoom);
+      lastPan = { x: e.clientX, y: e.clientY };
+      clampView();
+      scheduleDraw();
+      return;
     }
 
-    canvas.addEventListener('pointerup', endPointer);
-    canvas.addEventListener('pointercancel', endPointer);
-    canvas.addEventListener('pointerleave', (event) => {
-      if (event.pointerType === 'mouse' && event.buttons === 0) endPointer(event);
+    if (painting) {
+      e.preventDefault();
+      const cell = cellAt(e.clientX, e.clientY);
+      const delta = state.lineMode && lastCell
+        ? paintLine(lastCell, cell, strokeValue)
+        : paintBlock(cell.c, cell.r, strokeValue);
+      lastCell = cell;
+      commitPaint(delta);
+    }
+  });
+
+  const release = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 0) {
+      painting = false; panning = false; lastCell = null; lastPan = null;
+      canvas.style.cursor = 'crosshair';
+    }
+  };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+  canvas.addEventListener('lostpointercapture', release);
+}
+
+/* ============================ UI wiring ============================ */
+const ui = {};
+
+function syncClampChip() {
+  $('clampChip').textContent = state.clampMin + '–' + state.clampMax + '%';
+}
+function applyClamp() {
+  for (const k of KINDS) {
+    const r = state.rates[k];
+    for (let i = 0; i < r.length; i++) r[i] = clampRate(r[i]);
+    syncProbs(k);
+    renderRules(k);
+  }
+  ui.birthMaster.refresh();
+  ui.deathMaster.refresh();
+  ui.decayMaster.refresh();
+  syncClampChip();
+  scheduleDraw();
+}
+function applyMaster(kind, value) {
+  const r = state.rates[kind];
+  const v = clampRate(value);
+  for (let i = 0; i < r.length; i++) r[i] = v;
+  syncProbs(kind);
+  renderRules(kind);
+  if (kind !== 'decay') scheduleDraw();
+}
+function setAllDecayDir(down) {
+  state.decayDir.fill(down ? -1 : 1);
+  renderRules('decay');
+}
+function randomizeRates(kinds) {
+  for (const k of kinds) {
+    const r = state.rates[k];
+    const span = state.clampMax - state.clampMin;
+    for (let i = 0; i < r.length; i++) r[i] = clampRate(state.clampMin + Math.round(Math.random() * span));
+    syncProbs(k);
+    renderRules(k);
+  }
+  scheduleDraw();
+}
+function setColourMode(mode) {
+  state.colourMode = mode;
+  for (const b of document.querySelectorAll('[data-colour]')) {
+    b.setAttribute('aria-selected', b.dataset.colour === mode ? 'true' : 'false');
+  }
+  $('colourHelp').textContent = mode === 'rates'
+    ? 'Live cells shade by their death chance, dead cells by their birth chance.'
+    : 'Every cell shades by how close its counter is to the threshold. Needs a threshold above 0.';
+  scheduleDraw();
+}
+function syncGradients() {
+  $('liveGrad').style.background = 'linear-gradient(90deg,' + state.colours.liveLo + ',' + state.colours.liveHi + ')';
+  $('deadGrad').style.background = 'linear-gradient(90deg,' + state.colours.deadLo + ',' + state.colours.deadHi + ')';
+}
+
+function setupUI() {
+  /* tabs */
+  for (const tab of document.querySelectorAll('.tab')) {
+    tab.addEventListener('click', () => {
+      for (const t of document.querySelectorAll('.tab')) t.setAttribute('aria-selected', String(t === tab));
+      for (const p of document.querySelectorAll('.tab-panel')) p.classList.toggle('active', p.id === 'tab-' + tab.dataset.tab);
+    });
+  }
+  for (const seg of document.querySelectorAll('[data-rule]')) {
+    seg.addEventListener('click', () => {
+      for (const s of document.querySelectorAll('[data-rule]')) s.setAttribute('aria-selected', String(s === seg));
+      for (const p of document.querySelectorAll('.rule-pane')) p.hidden = p.dataset.pane !== seg.dataset.rule;
+    });
+  }
+  for (const b of document.querySelectorAll('[data-colour]')) {
+    b.addEventListener('click', () => setColourMode(b.dataset.colour));
+  }
+
+  /* transport */
+  $('playBtn').addEventListener('click', () => setRunning(!state.running));
+  $('stepBtn').addEventListener('click', singleStep);
+  $('randomBtn').addEventListener('click', () => fillRandom());
+  $('clearBtn').addEventListener('click', () => { setRunning(false); clearGrid(); });
+  $('fillBtn').addEventListener('click', () => fillRandom());
+
+  /* panel fold */
+  $('panelClose').addEventListener('click', () => { $('app').classList.add('folded'); requestAnimationFrame(resizeCanvas); });
+  $('panelOpen').addEventListener('click', () => { $('app').classList.remove('folded'); requestAnimationFrame(resizeCanvas); });
+
+  /* view tools */
+  $('zoomIn').addEventListener('click', () => zoomAt(0.5, 0.5, 1.4));
+  $('zoomOut').addEventListener('click', () => zoomAt(0.5, 0.5, 1 / 1.4));
+  $('resetView').addEventListener('click', resetView);
+
+  /* run tab */
+  bindPair('fpsR', 'fpsN', (v) => { state.fps = v; });
+  bindPair('skipR', 'skipN', (v) => { state.frameSkip = v; });
+  bindPair('densR', 'densN', (v) => { state.density = v; });
+  bindPair('brushR', 'brushN', (v) => { state.brush = v % 2 ? v : v + 1; });
+  $('lineMode').addEventListener('change', (e) => { state.lineMode = e.target.checked; });
+
+  /* view tab */
+  bindPair('cellR', 'cellN', (v) => setCellSize(v));
+  $('wrapEdges').addEventListener('change', (e) => { state.wrap = e.target.checked; scheduleDraw(); });
+  $('borders').addEventListener('change', (e) => { state.borders = e.target.checked; scheduleDraw(); });
+
+  for (const [inputId, textId, key] of [
+    ['liveLo', 'liveLoT', 'liveLo'], ['liveHi', 'liveHiT', 'liveHi'],
+    ['deadLo', 'deadLoT', 'deadLo'], ['deadHi', 'deadHiT', 'deadHi']
+  ]) {
+    $(inputId).addEventListener('input', (e) => {
+      state.colours[key] = e.target.value.toLowerCase();
+      $(textId).textContent = state.colours[key];
+      buildLUTs();
+      syncGradients();
+      scheduleDraw();
     });
   }
 
-  function setupKeyboard() {
-    window.addEventListener('keydown', (event) => {
-      const tag = document.activeElement && document.activeElement.tagName;
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-      if (event.code === 'Space') {
-        event.preventDefault();
-        toggleRunning();
-      } else if (event.key === 's' || event.key === 'S') {
-        event.preventDefault();
-        setRunning(false);
-        computeNextGeneration();
-        draw();
-      } else if (event.key === 'r' || event.key === 'R') {
-        event.preventDefault();
-        randomizeGrid(true);
-      } else if (event.key === 'c' || event.key === 'C') {
-        event.preventDefault();
-        clearGrid();
-      }
-    });
-  }
+  /* clamp + masters */
+  ui.clampMin = bindPair('clampMinR', 'clampMinN', (v) => { state.clampMin = v; applyClamp(); }, () => ({ min: 0, max: state.clampMax }));
+  ui.clampMax = bindPair('clampMaxR', 'clampMaxN', (v) => { state.clampMax = v; applyClamp(); }, () => ({ min: state.clampMin, max: 100 }));
+  const masterBounds = () => ({ min: state.clampMin, max: state.clampMax });
+  ui.birthMaster = bindPair('birthMasterR', 'birthMasterN', () => {}, masterBounds);
+  ui.deathMaster = bindPair('deathMasterR', 'deathMasterN', () => {}, masterBounds);
+  ui.decayMaster = bindPair('decayMasterR', 'decayMasterN', () => {}, masterBounds);
+  $('birthMasterApply').addEventListener('click', () => applyMaster('birth', ui.birthMaster.value()));
+  $('deathMasterApply').addEventListener('click', () => applyMaster('death', ui.deathMaster.value()));
+  $('decayMasterApply').addEventListener('click', () => applyMaster('decay', ui.decayMaster.value()));
+  $('decayAllUp').addEventListener('click', () => setAllDecayDir(false));
+  $('decayAllDown').addEventListener('click', () => setAllDecayDir(true));
+  $('randRules').addEventListener('click', () => randomizeRates(['birth', 'death']));
 
-  function initialize() {
-    setupTabs();
-    setupBasicControls();
-    setupButtons();
-    setupRuleEvents();
-    setupCanvasInteractions();
-    setupKeyboard();
-
-    rebuildOffsetsAndRates('birth', true);
-    rebuildOffsetsAndRates('death', true);
-    renderNeighborGrid('birth');
-    renderNeighborGrid('death');
-    renderRules('birth');
-    renderRules('death');
-    initializeGrid();
+  /* decay tab */
+  ui.threshold = bindPair('thrR', 'thrN', (v) => {
+    state.threshold = v;
+    $('thrChip').textContent = v === 0 ? 'off' : 'at ' + v;
+    recount();
     updateStats();
-    draw();
+    scheduleDraw();
+  });
+  $('resetBirth').addEventListener('change', (e) => { state.resetOnBirth = e.target.checked; });
+  $('clearAccum').addEventListener('click', () => {
+    state.accum.fill(0);
+    state.spent = 0;
+    updateStats();
+    scheduleDraw();
+  });
 
-    if ('ResizeObserver' in window) {
-      const resizeObserver = new ResizeObserver(() => draw());
-      resizeObserver.observe(canvas);
-      resizeObserver.observe(els.controlPanel);
-    } else {
-      window.addEventListener('resize', draw);
-    }
+  /* rule lists + masks (delegated) */
+  for (const k of KINDS) {
+    const list = ruleListFor(k);
+    list.addEventListener('input', onRuleInput);
+    list.addEventListener('change', onRuleInput);
+    $(k + 'Mask').addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn || btn.disabled) return;
+      toggleMaskCell(k, Number(btn.dataset.index));
+    });
+  }
+  for (const btn of document.querySelectorAll('[data-mask]')) {
+    btn.addEventListener('click', () => {
+      const [kind, mode] = btn.dataset.mask.split(':');
+      setMask(kind, mode);
+    });
+  }
+  for (const btn of document.querySelectorAll('[data-preset]')) {
+    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
   }
 
-  initialize();
+  /* keyboard */
+  window.addEventListener('keydown', (e) => {
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    switch (e.key) {
+      case ' ': e.preventDefault(); setRunning(!state.running); break;
+      case 's': case 'S': e.preventDefault(); singleStep(); break;
+      case 'r': case 'R': e.preventDefault(); fillRandom(); break;
+      case 'c': case 'C': e.preventDefault(); setRunning(false); clearGrid(); break;
+      case '+': case '=': e.preventDefault(); zoomAt(0.5, 0.5, 1.4); break;
+      case '-': case '_': e.preventDefault(); zoomAt(0.5, 0.5, 1 / 1.4); break;
+      case '0': e.preventDefault(); resetView(); break;
+    }
+  });
+}
+
+/* ============================ boot ============================ */
+function init() {
+  const { cols, rows } = gridDims(state.cellSize);
+  allocate(cols, rows);
+  for (const k of KINDS) resizeRates(k, true);
+  state.decayDir = new Int8Array(state.offsets.decay.n + 1).fill(1);
+
+  setupUI();
+  setupPointer();
+  buildLUTs();
+  syncGradients();
+  syncClampChip();
+
+  for (const k of KINDS) { renderMask(k); renderRules(k); }
+  setColourMode('rates');
+  fillRandom();
+  updateStats();
+
+  if (window.matchMedia('(max-width:880px)').matches) $('app').classList.add('folded');
+
+  let resizeTick = null;
+  const onResize = () => {
+    if (resizeTick) cancelAnimationFrame(resizeTick);
+    resizeTick = requestAnimationFrame(() => { resizeTick = null; resizeCanvas(); });
+  };
+  if ('ResizeObserver' in window) new ResizeObserver(onResize).observe($('frame'));
+  window.addEventListener('resize', onResize);
+  resizeCanvas();
+}
+
+init();
 })();
 </script>
 </body>
