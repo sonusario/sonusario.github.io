@@ -79,11 +79,23 @@ button{touch-action:manipulation}
 /* ---------- panel ---------- */
 .workspace{min-height:0;display:flex;align-items:stretch;overflow:hidden;position:relative}
 .panel{
-  flex:0 0 auto;width:clamp(320px,30vw,460px);min-width:296px;max-width:min(640px,68vw);
-  min-height:0;overflow:hidden;border-right:1px solid var(--line);
+  position:relative;
+  flex:0 0 auto;width:clamp(340px,34vw,540px);min-width:280px;max-width:min(760px,78vw);
+  min-height:0;overflow:hidden;border-right:1px solid var(--line);padding-right:9px;
   background:var(--panel);display:grid;grid-template-rows:auto auto 1fr;
 }
-@media (min-width:881px){.panel{resize:horizontal}}
+.panel-grip{
+  position:absolute;top:0;right:0;bottom:0;width:9px;z-index:9;
+  cursor:col-resize;touch-action:none;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.04));
+}
+.panel-grip::after{
+  content:"";position:absolute;top:50%;right:3px;width:3px;height:38px;
+  transform:translateY(-50%);border-radius:2px;background:var(--line-hi);
+  transition:background .12s ease,height .12s ease;
+}
+.panel-grip:hover::after{background:var(--muted);height:60px}
+.panel-grip.dragging::after{background:var(--death);height:80px}
 .panel-head{display:flex;align-items:center;gap:8px;padding:8px var(--pad);border-bottom:1px solid var(--line)}
 .panel-title{font-size:.74rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;border-bottom:1px solid var(--line)}
@@ -94,7 +106,48 @@ button{touch-action:manipulation}
 .tab[aria-selected="true"]{background:var(--btn-hi);color:#fff;border-color:var(--line-hi)}
 .tab[data-tab="rules"][aria-selected="true"]{box-shadow:inset 0 -2px 0 var(--birth)}
 .tab[data-tab="decay"][aria-selected="true"]{box-shadow:inset 0 -2px 0 var(--decay)}
-.panel-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--pad) var(--pad) 40px;scrollbar-gutter:stable}
+.tab{position:relative}
+.tab.dirty::before{
+  content:"";position:absolute;top:5px;right:6px;width:6px;height:6px;
+  border-radius:50%;background:var(--death);box-shadow:0 0 0 2px var(--panel);
+}
+
+/* ---------- apply bar ---------- */
+.apply-bar{
+  position:absolute;left:0;right:9px;bottom:0;z-index:7;
+  display:grid;grid-template-columns:1fr auto auto;gap:7px;align-items:center;
+  padding:9px var(--pad);border-top:1px solid var(--line-hi);
+  background:linear-gradient(180deg,rgba(255,154,0,.10),rgba(13,17,23,.99));
+  backdrop-filter:blur(8px);
+}
+.apply-text{min-width:0;display:grid;gap:1px}
+.apply-text b{font-size:.76rem;font-weight:800;color:#fff}
+.apply-text span{
+  font-size:.68rem;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.apply-bar .btn{min-height:32px;padding:6px 12px}
+
+/* ---------- themes ---------- */
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
+.theme{
+  border:1px solid var(--line-hi);border-radius:8px;background:var(--sunk);
+  padding:0;overflow:hidden;cursor:pointer;display:grid;gap:0;
+}
+.theme:hover{border-color:var(--muted)}
+.theme[aria-pressed="true"]{border-color:var(--death);box-shadow:0 0 0 1px var(--death)}
+.theme i{display:block;height:11px}
+.theme span{
+  display:block;padding:4px 2px;font-size:.66rem;font-weight:700;
+  letter-spacing:.04em;color:#cfd8e6;
+}
+.panel-body{
+  min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:var(--pad) var(--pad) 25vh;scrollbar-gutter:stable;overflow-anchor:none;
+}
+/* Dead space below the last card so the bottom controls can be dragged into
+   comfortable reach instead of sitting against the edge of the screen. */
+.panel-body::after{content:"";display:block;height:0}
 .tab-panel{display:none}
 .tab-panel.active{display:grid;gap:9px}
 
@@ -163,15 +216,30 @@ input:disabled{opacity:.4;cursor:not-allowed}
 .rule-row input[type="number"]{font-size:.72rem;padding:4px 2px}
 
 /* ---------- masks ---------- */
-.mask{display:grid;grid-template-columns:repeat(9,1fr);gap:2px}
+/* ---------- masks ----------
+   Cells are positioned from the topology's own geometry rather than laid out by
+   flow, because hexagon rows overlap vertically by a quarter of a cell and have
+   different lengths. The container's aspect ratio comes from the mask bounding
+   box, so percentages are all the sizing that's needed. */
+.mask{position:relative;width:100%;touch-action:none;user-select:none}
 .mask button{
-  aspect-ratio:1;min-width:0;border:1px solid rgba(147,160,178,.28);background:var(--sunk);
-  border-radius:3px;padding:0;cursor:pointer;
+  position:absolute;margin:0;padding:0;
+  border:1px solid rgba(147,160,178,.28);background:var(--sunk);
+  border-radius:3px;cursor:pointer;transform:scale(.92);
 }
+.mask.hex button{
+  border-radius:1px;transform:scale(.97);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+}
+.mask.tri button{border-radius:0;transform:scale(.95)}
+.mask.tri button.up{clip-path:polygon(50% 0,100% 100%,0 100%)}
+.mask.tri button.down{clip-path:polygon(0 0,100% 0,50% 100%)}
+.mask.tri button.core::after{inset:auto 40% 14% 40%;aspect-ratio:1}
+.btn-row.pat{grid-template-columns:repeat(auto-fit,minmax(72px,1fr))}
 .mask button.on{background:#14335c;border-color:var(--birth)}
 .mask.death button.on{background:#4d2f00;border-color:var(--death)}
 .mask.decay button.on{background:#331c5c;border-color:var(--decay)}
-.mask button.core{background:#e9eef7;border-color:#e9eef7;cursor:not-allowed;position:relative}
+.mask button.core{background:#e9eef7;border-color:#e9eef7;cursor:not-allowed}
 .mask button.core::after{content:"";position:absolute;inset:32%;background:#0b0f15;border-radius:50%}
 
 /* ---------- colour ---------- */
@@ -193,10 +261,15 @@ input:disabled{opacity:.4;cursor:not-allowed}
   image-rendering:pixelated;cursor:crosshair;touch-action:none;user-select:none;
 }
 .canvas-off{visibility:hidden;pointer-events:none}
+.overlay{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:2;pointer-events:none;
+}
 .hidden{display:none!important}
 .reticle{
   position:absolute;top:0;left:0;z-index:3;pointer-events:none;
-  border:1px solid rgba(255,255,255,.92);box-shadow:0 0 0 1px rgba(0,0,0,.8);
+  outline:1px solid rgba(255,255,255,.92);outline-offset:-1px;
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.55);
 }
 .coords{
   position:absolute;top:0;left:0;z-index:4;pointer-events:none;
@@ -237,7 +310,10 @@ input:disabled{opacity:.4;cursor:not-allowed}
 
 /* ---------- responsive ---------- */
 @media (max-width:880px){
-  .panel{position:absolute;inset:0 auto 0 0;z-index:8;width:min(90vw,370px);max-width:90vw;box-shadow:16px 0 34px rgba(0,0,0,.5)}
+  .panel{position:absolute;inset:0 auto 0 0;z-index:8;width:min(92vw,420px);max-width:92vw;box-shadow:16px 0 34px rgba(0,0,0,.5)}
+  .panel-body{padding-bottom:calc(45vh + env(safe-area-inset-bottom,0px))}
+  .panel-grip{width:14px}
+  .panel-grip::after{right:5px;height:70px}
   .brand .tag{display:none}
   .transport .btn{padding:6px 8px}
   .rule-list{max-height:none}
@@ -272,6 +348,8 @@ input:disabled{opacity:.4;cursor:not-allowed}
 
   <main class="workspace">
     <aside class="panel" id="panel" aria-label="Controls">
+      <div class="panel-grip" id="panelGrip" role="separator" aria-orientation="vertical"
+           aria-label="Resize controls panel" title="Drag to resize · double-click to reset"></div>
       <div class="panel-head">
         <button class="icon-btn" id="panelClose" type="button" title="Hide controls" aria-label="Hide controls">☰</button>
         <span class="panel-title">Controls</span>
@@ -355,6 +433,15 @@ input:disabled{opacity:.4;cursor:not-allowed}
         <!-- RULES -->
         <section class="tab-panel" id="tab-rules" role="tabpanel">
           <div class="card">
+            <h2 class="card-title">Editing mode</h2>
+            <div class="field check">
+              <label for="liveApply">Apply rule changes immediately</label>
+              <input id="liveApply" type="checkbox" data-sync="liveApply">
+            </div>
+            <p class="help">Off by default: rule, mask, threshold and wrap edits are held until you press Apply, so the running field keeps its behaviour while you set up the next one. Ctrl+Enter applies, Ctrl+Backspace reverts.</p>
+          </div>
+
+          <div class="card">
             <h2 class="card-title">Presets</h2>
             <div class="btn-row four">
               <button class="btn" type="button" data-preset="conway">Conway</button>
@@ -391,11 +478,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <h2 class="card-title">Birth neighbourhood <span class="chip" id="birthMaskChip">8 cells</span></h2>
               <p class="help">Which offsets a dead cell scans for live neighbours. Centre is the cell itself.</p>
               <div class="mask birth" id="birthMask" aria-label="Birth neighbour mask"></div>
-              <div class="btn-row three">
-                <button class="btn" type="button" data-mask="birth:moore">Moore 8</button>
-                <button class="btn" type="button" data-mask="birth:all">All 80</button>
-                <button class="btn" type="button" data-mask="birth:random">Random</button>
-              </div>
+              <div class="btn-row pat" id="birthPatterns"></div>
             </div>
             <div class="card birth-tint">
               <h2 class="card-title">Birth chance per live neighbour</h2>
@@ -414,11 +497,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <h2 class="card-title">Death neighbourhood <span class="chip" id="deathMaskChip">8 cells</span></h2>
               <p class="help">Which offsets a live cell scans for live neighbours.</p>
               <div class="mask death" id="deathMask" aria-label="Death neighbour mask"></div>
-              <div class="btn-row three">
-                <button class="btn" type="button" data-mask="death:moore">Moore 8</button>
-                <button class="btn" type="button" data-mask="death:all">All 80</button>
-                <button class="btn" type="button" data-mask="death:random">Random</button>
-              </div>
+              <div class="btn-row pat" id="deathPatterns"></div>
             </div>
             <div class="card">
               <h2 class="card-title">Death chance per live neighbour</h2>
@@ -435,6 +514,15 @@ input:disabled{opacity:.4;cursor:not-allowed}
 
         <!-- DECAY -->
         <section class="tab-panel decay-tint" id="tab-decay" role="tabpanel">
+          <div class="card">
+            <h2 class="card-title">Editing mode</h2>
+            <div class="field check">
+              <label for="liveApplyDecay">Apply rule changes immediately</label>
+              <input id="liveApplyDecay" type="checkbox" data-sync="liveApply">
+            </div>
+            <p class="help">Same switch as on the Rules tab. Off by default: edits wait for Apply.</p>
+          </div>
+
           <div class="card">
             <h2 class="card-title">Depletion threshold <span class="chip" id="thrChip">off</span></h2>
             <div class="field">
@@ -454,11 +542,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
             <h2 class="card-title">Depletion neighbourhood <span class="chip" id="decayMaskChip">8 cells</span></h2>
             <p class="help">Which offsets feed the counter roll. Live and dead cells both roll.</p>
             <div class="mask decay" id="decayMask" aria-label="Depletion neighbour mask"></div>
-            <div class="btn-row three">
-              <button class="btn" type="button" data-mask="decay:moore">Moore 8</button>
-              <button class="btn" type="button" data-mask="decay:all">All 80</button>
-              <button class="btn" type="button" data-mask="decay:random">Random</button>
-            </div>
+            <div class="btn-row pat" id="decayPatterns"></div>
           </div>
 
           <div class="card">
@@ -481,6 +565,16 @@ input:disabled{opacity:.4;cursor:not-allowed}
         <!-- VIEW -->
         <section class="tab-panel" id="tab-view" role="tabpanel">
           <div class="card">
+            <h2 class="card-title">Tiling</h2>
+            <div class="seg three" role="tablist" aria-label="Tiling">
+              <button role="tab" type="button" data-topo="square" aria-selected="true">Square</button>
+              <button role="tab" type="button" data-topo="hex" aria-selected="false">Hexagon</button>
+              <button role="tab" type="button" data-topo="tri" aria-selected="false">Triangle</button>
+            </div>
+            <p class="help" id="topoNote">Cells are square, so every neighbour offset is the same on every row.</p>
+          </div>
+
+          <div class="card">
             <h2 class="card-title">Grid <span class="chip" id="gridChip">70 × 50</span></h2>
             <div class="field check">
               <label for="linkGrid">Size follows cell size</label>
@@ -501,7 +595,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <input id="rowsR" type="range" min="4" max="500" step="1" value="50" disabled>
               <input id="rowsN" type="number" min="4" max="500" step="1" value="50" aria-label="Rows" disabled>
             </div>
-            <div class="field check"><label for="oddDims">Odd size, one true centre cell</label><input id="oddDims" type="checkbox"></div>
+            <div class="field check" id="oddField"><label for="oddDims">Odd size, one true centre cell</label><input id="oddDims" type="checkbox"></div>
             <div class="field check"><label for="wrapEdges">Wrap edges</label><input id="wrapEdges" type="checkbox" checked></div>
             <div class="field check"><label for="borders">Cell borders</label><input id="borders" type="checkbox" checked></div>
             <div class="field check"><label for="centreOrigin">Read coordinates from centre</label><input id="centreOrigin" type="checkbox"></div>
@@ -510,11 +604,22 @@ input:disabled{opacity:.4;cursor:not-allowed}
 
           <div class="card">
             <h2 class="card-title">Colour source</h2>
-            <div class="seg" role="tablist" aria-label="Colour source">
-              <button role="tab" type="button" data-colour="rates" aria-selected="true">Transition odds</button>
+            <div class="seg three" role="tablist" aria-label="Colour source">
+              <button role="tab" type="button" data-colour="rates" aria-selected="true">Odds</button>
               <button role="tab" type="button" data-colour="decay" aria-selected="false">Depletion</button>
+              <button role="tab" type="button" data-colour="combined" aria-selected="false">Both</button>
+            </div>
+            <div class="field hidden" id="influenceField">
+              <label for="inflR">Depletion depth</label>
+              <input id="inflR" type="range" min="0" max="100" step="1" value="65">
+              <input id="inflN" type="number" min="0" max="100" step="1" value="65" aria-label="Depletion influence">
             </div>
             <p class="help" id="colourHelp">Live cells shade by their death chance, dead cells by their birth chance.</p>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Themes</h2>
+            <div class="themes" id="themeList"></div>
           </div>
 
           <div class="card">
@@ -524,6 +629,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <label class="swatch"><input type="color" id="liveLo" value="#ffffff"><span><b>Low</b><code id="liveLoT">#ffffff</code></span></label>
               <label class="swatch"><input type="color" id="liveHi" value="#ff9a00"><span><b>High</b><code id="liveHiT">#ff9a00</code></span></label>
             </div>
+            <div class="field check"><label for="invertLive">Invert live gradient</label><input id="invertLive" type="checkbox"></div>
           </div>
 
           <div class="card">
@@ -533,9 +639,19 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <label class="swatch"><input type="color" id="deadLo" value="#15151d"><span><b>Low</b><code id="deadLoT">#15151d</code></span></label>
               <label class="swatch"><input type="color" id="deadHi" value="#0e2e63"><span><b>High</b><code id="deadHiT">#0e2e63</code></span></label>
             </div>
+            <div class="field check"><label for="invertDead">Invert dead gradient</label><input id="invertDead" type="checkbox"></div>
           </div>
         </section>
 
+      </div>
+
+      <div class="apply-bar hidden" id="applyBar">
+        <div class="apply-text">
+          <b id="pendingText">0 pending changes</b>
+          <span id="pendingDetail"></span>
+        </div>
+        <button class="btn" id="revertBtn" type="button">Revert</button>
+        <button class="btn primary" id="applyBtn" type="button">Apply</button>
       </div>
     </aside>
 
@@ -544,6 +660,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
       <div class="canvas-frame" id="frame">
         <canvas id="cv" aria-label="Cellular automaton field"></canvas>
         <canvas id="gv" class="canvas-off" aria-hidden="true"></canvas>
+        <canvas id="ov" class="overlay" aria-hidden="true"></canvas>
         <div class="reticle" id="reticle" hidden></div>
         <div class="coords" id="coords" hidden></div>
       </div>
@@ -574,14 +691,217 @@ input:disabled{opacity:.4;cursor:not-allowed}
 'use strict';
 
 /* ============================ constants ============================ */
-const MASK_N = 9;                 // mask edge length
-const MASK_C = 4;                 // mask centre index on one axis
-const CENTER = MASK_C * MASK_N + MASK_C;
 const BASE_W = 700, BASE_H = 500; // grid budget in pixels-at-cell-size
 const ACC_MAX = 100;              // counter ceiling, matches threshold range
 const ZOOM_MIN = 1, ZOOM_MAX = 64;
 const MIN_DIM = 4, MAX_COLS = BASE_W, MAX_ROWS = BASE_H;
 const KINDS = ['birth', 'death', 'decay'];
+
+/* ============================ topologies ============================
+
+   Everything that knows what shape a cell is lives here. The rest of the app
+   deals in cell indices and asks the topology for geometry.
+
+   Storage stays row-major `r * cols + c` for both tilings — hexagons use odd-r
+   offset coordinates, so they fit the same array. The one thing hexagons add is
+   that a neighbour's (dr, dc) depends on the row's parity, which is why offsets
+   are built per variant instead of once.                                     */
+
+const SQ3 = Math.sqrt(3);
+const HEX_V = SQ3 / 2;            // vertical centre spacing when hex width = 1
+const HEX_H = 2 / SQ3;            // hex height when hex width = 1
+
+function axialRound(qf, rf) {
+  const sf = -qf - rf;
+  let q = Math.round(qf), r = Math.round(rf);
+  const s = Math.round(sf);
+  const dq = Math.abs(q - qf), dr = Math.abs(r - rf), ds = Math.abs(s - sf);
+  if (dq > dr && dq > ds) q = -r - s;
+  else if (dr > ds) r = -q - s;
+  return { q, r };
+}
+
+function squareTopology() {
+  const R = 4;
+  const cells = [], rows = [];
+  for (let dr = -R; dr <= R; dr++) {
+    const row = [];
+    for (let dc = -R; dc <= R; dc++) {
+      row.push(cells.length);
+      cells.push({ dr, dc, dx: dc, dy: dr,
+                   ring: Math.max(Math.abs(dr), Math.abs(dc)), dist: Math.hypot(dc, dr) });
+    }
+    rows.push(row);
+  }
+  return {
+    id: 'square', name: 'Square', gpuKind: 0, variants: 1, parityMode: 0, visPad: 1,
+    maskRadius: R, maskCell: { w: 1, h: 1 },
+    caps: { wrap: true, wrapStep: { cols: 1, rows: 1 }, oddCentre: true },
+    maskCells: cells, maskRows: rows,
+    centreIndex: cells.findIndex((c) => c.dr === 0 && c.dc === 0),
+    delta: (cell) => ({ dr: cell.dr, dc: cell.dc }),
+    world: (cols, rws) => ({ w: cols, h: rws }),
+    centre: (c, r) => ({ x: c + 0.5, y: r + 0.5 }),
+    corners: (c, r) => [[c, r], [c + 1, r], [c + 1, r + 1], [c, r + 1]],
+    pick: (x, y) => ({ c: Math.floor(x), r: Math.floor(y) }),
+    patterns: ['adjacent', 'all', 'disc', 'ring', 'cross', 'diagonal', 'checker', 'random'],
+    note: ''
+  };
+}
+
+function hexTopology() {
+  const R = 4;
+  const cells = [], rows = [];
+  for (let dr = -R; dr <= R; dr++) {
+    const row = [];
+    for (let dq = Math.max(-R, -R - dr); dq <= Math.min(R, R - dr); dq++) {
+      row.push(cells.length);
+      const dx = dq + dr / 2, dy = dr * HEX_V;
+      cells.push({ dq, dr, dx, dy,
+                   ring: (Math.abs(dq) + Math.abs(dq + dr) + Math.abs(dr)) / 2,
+                   dist: Math.hypot(dx, dy) });
+    }
+    rows.push(row);
+  }
+  return {
+    id: 'hex', name: 'Hexagon', gpuKind: 1, variants: 2, parityMode: 1, visPad: 2,
+    maskRadius: R, maskCell: { w: 1, h: HEX_H },
+    caps: { wrap: true, wrapStep: { cols: 1, rows: 2 }, oddCentre: true },
+    maskCells: cells, maskRows: rows,
+    centreIndex: cells.findIndex((c) => c.dq === 0 && c.dr === 0),
+    // Odd rows sit half a cell to the right, so the column delta that reaches a
+    // given axial neighbour differs between even and odd rows.
+    delta: (cell, parity) => ({
+      dr: cell.dr,
+      dc: cell.dq + (parity ? Math.floor((cell.dr + 1) / 2) : Math.floor(cell.dr / 2))
+    }),
+    world: (cols, rws) => ({ w: cols + 0.5, h: (rws - 1) * HEX_V + HEX_H }),
+    centre: (c, r) => ({ x: c + 0.5 + (r & 1) * 0.5, y: r * HEX_V + HEX_H / 2 }),
+    corners(c, r) {
+      const p = this.centre(c, r), out = [];
+      for (let k = 0; k < 6; k++) {
+        const a = (Math.PI / 180) * (60 * k - 90);
+        out.push([p.x + (HEX_H / 2) * Math.cos(a), p.y + (HEX_H / 2) * Math.sin(a)]);
+      }
+      return out;
+    },
+    pick(x, y) {
+      const rf = (y - HEX_H / 2) / HEX_V;
+      const a = axialRound((x - 0.5) - rf / 2, rf);
+      return { c: a.q + ((a.r - (a.r & 1)) >> 1), r: a.r };
+    },
+    patterns: ['adjacent', 'all', 'disc', 'ring', 'cross', 'random'],
+    note: 'Odd rows are offset by half a cell. With wrapping on, the row count is forced even so the vertical seam stays symmetric; columns are unrestricted.'
+  };
+}
+
+/** Triangles alternate point-up and point-down across a row, so a cell's
+    orientation is (r + c) parity — the first tiling where the neighbourhood
+    depends on the column as well as the row. Reflecting a down triangle about
+    its own row midline gives an up triangle and maps the lattice onto itself,
+    so one mask defined in the up frame serves both: down cells negate dr. */
+const TRI_H = SQ3 / 2;
+
+function triTopology() {
+  const RING = 6;
+  const key = (dr, dc) => dr + ':' + dc;
+  const dist = new Map([[key(0, 0), 0]]);
+  let frontier = [[0, 0]];
+  for (let d = 1; d <= RING; d++) {
+    const next = [];
+    for (const [dr, dc] of frontier) {
+      const up = ((dr + dc) & 1) === 0;
+      for (const [nr, nc] of [[dr, dc - 1], [dr, dc + 1], up ? [dr + 1, dc] : [dr - 1, dc]]) {
+        if (dist.has(key(nr, nc))) continue;
+        dist.set(key(nr, nc), d);
+        next.push([nr, nc]);
+      }
+    }
+    frontier = next;
+  }
+  const list = [...dist.entries()].map(([k, ring]) => {
+    const [dr, dc] = k.split(':').map(Number);
+    return { dr, dc, ring, dx: dc / 2, dy: dr * TRI_H, dist: Math.hypot(dc / 2, dr * TRI_H) };
+  });
+  list.sort((a, b) => (a.dr - b.dr) || (a.dc - b.dc));
+  const cells = list;
+  const rows = [];
+  let cur = null, curDr = null;
+  cells.forEach((m, i) => {
+    if (m.dr !== curDr) { cur = []; rows.push(cur); curDr = m.dr; }
+    cur.push(i);
+  });
+  return {
+    id: 'tri', name: 'Triangle', gpuKind: 2, variants: 2, parityMode: 2, visPad: 3,
+    maskRadius: RING, maskCell: { w: 1, h: TRI_H },
+    caps: { wrap: true, wrapStep: { cols: 1, rows: 2 }, oddCentre: true },
+    maskCells: cells, maskRows: rows,
+    centreIndex: cells.findIndex((c) => c.dr === 0 && c.dc === 0),
+    maskClass: (m) => (((m.dr + m.dc) & 1) === 0 ? 'up' : 'down'),
+    delta: (cell, parity) => ({ dr: parity ? -cell.dr : cell.dr, dc: cell.dc }),
+    world: (cols, rws) => ({ w: cols / 2 + 0.5, h: rws * TRI_H }),
+    centre: (c, r) => ({
+      x: c / 2 + 0.5,
+      y: r * TRI_H + (((r + c) & 1) === 0 ? (2 / 3) : (1 / 3)) * TRI_H
+    }),
+    corners(c, r) {
+      const x0 = c / 2, y0 = r * TRI_H, y1 = y0 + TRI_H;
+      // Both orientations wound the same way, so a shared edge is traversed in
+      // opposite directions and cancels during perimeter extraction.
+      return ((r + c) & 1) === 0
+        ? [[x0, y1], [x0 + 1, y1], [x0 + 0.5, y0]]      // point up
+        : [[x0, y0], [x0 + 0.5, y1], [x0 + 1, y0]];     // point down
+    },
+    pick(x, y) {
+      const r = Math.floor(y / TRI_H);
+      const fy = y / TRI_H - r;
+      const k = Math.floor(x * 2);
+      const fx = x * 2 - k;
+      const c = ((r + k) & 1) === 0 ? (fx + fy >= 1 ? k : k - 1) : (fx >= fy ? k : k - 1);
+      return { c, r };
+    },
+    brushPoly(c, r, n) {
+      const ra = r - ((n - 1) >> 1);
+      const left = (c - n + 1) / 2, right = (c + n + 1) / 2, mid = (c + 1) / 2;
+      const yTop = ra * TRI_H, yBot = (ra + n) * TRI_H;
+      return ((r + c) & 1) === 0
+        ? [[left, yBot], [right, yBot], [mid, yTop]]     // point up
+        : [[left, yTop], [mid, yBot], [right, yTop]];    // point down
+    },
+    patterns: ['adjacent', 'all', 'disc', 'ring', 'cross', 'random'],
+    note: 'Cells alternate point-up and point-down, so the neighbourhood mirrors between them. Wrapping needs an even number of rows so the vertical seam stays symmetric; columns are unrestricted.'
+  };
+}
+
+const TOPOLOGIES = { square: squareTopology(), hex: hexTopology(), tri: triTopology() };
+
+/** Bounding box of a topology's mask, in the same units as maskCell. */
+function maskBox(t) {
+  if (t._box) return t._box;
+  const hw = t.maskCell.w / 2, hh = t.maskCell.h / 2;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const m of t.maskCells) {
+    if (m.dx - hw < minX) minX = m.dx - hw;
+    if (m.dx + hw > maxX) maxX = m.dx + hw;
+    if (m.dy - hh < minY) minY = m.dy - hh;
+    if (m.dy + hh > maxY) maxY = m.dy + hh;
+  }
+  t._box = { minX, minY, w: maxX - minX, h: maxY - minY };
+  return t._box;
+}
+
+/** Mask patterns, expressed against a mask cell's geometry so they port across
+    tilings. A topology only lists the ones that mean something for it. */
+const PATTERNS = {
+  adjacent: { label: 'Adjacent', test: (m) => m.ring === 1 },
+  all:      { label: 'All',      test: () => true },
+  disc:     { label: 'Disc 2',   test: (m) => m.ring <= 2 },
+  ring:     { label: 'Ring 2',   test: (m) => m.ring === 2 },
+  cross:    { label: 'Cross',    test: (m) => Math.abs(m.dx) < 0.3 || Math.abs(m.dy) < 0.3 },
+  diagonal: { label: 'Diagonal', test: (m) => Math.abs(Math.abs(m.dx) - Math.abs(m.dy)) < 0.3 },
+  checker:  { label: 'Checker',  test: (m) => ((m.dr + m.dc) & 1) === 0 },
+  random:   { label: 'Random',   test: () => Math.random() < 0.35 }
+};
 
 /* ============================ small helpers ============================ */
 const $ = (id) => document.getElementById(id);
@@ -607,6 +927,7 @@ function packRGB(r, g, b) {
   return (LITTLE_ENDIAN ? (255 << 24) | (b << 16) | (g << 8) | r
                         : (r << 24) | (g << 16) | (b << 8) | 255) >>> 0;
 }
+const rgbToCss = (c) => 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
 
 /* ============================ state ============================ */
 const state = {
@@ -631,7 +952,8 @@ const state = {
   gen: 0, live: 0, spent: 0,
 
   clampMin: 0, clampMax: 100,
-  masks:   { birth: mooreMask(), death: mooreMask(), decay: mooreMask() },
+  topo: TOPOLOGIES.square,
+  masks:   { birth: null, death: null, decay: null },
   offsets: { birth: null, death: null, decay: null },
   rates:   { birth: [], death: [], decay: [] },
   probs:   { birth: null, death: null, decay: null },
@@ -640,56 +962,84 @@ const state = {
   resetOnBirth: false,
 
   colours: { liveLo: '#ffffff', liveHi: '#ff9a00', deadLo: '#15151d', deadHi: '#0e2e63' },
+  invertLive: false, invertDead: false, decayInfluence: 65,
+  liveApply: false,
   view: { zoom: 1, x: 0, y: 0 }
 };
 
+/* Committed rule set. The controls edit `state`; the simulation, the shaders and
+   the colour mapping read `rules`. In live mode a commit follows every edit, so
+   the two never diverge. In staged mode they diverge until Apply, which is the
+   whole point — the running field keeps its behaviour while you set up the next. */
+const rules = {
+  masks:   { birth: null, death: null, decay: null },
+  offsets: { birth: null, death: null, decay: null },
+  rates:   { birth: [], death: [], decay: [] },
+  probs:   { birth: null, death: null, decay: null },
+  decayDir: null,
+  threshold: 0,
+  resetOnBirth: false,
+  wrap: true
+};
+const pending = new Map();
+
 /* ============================ masks & offsets ============================ */
-function mooreMask() {
-  const m = new Uint8Array(MASK_N * MASK_N);
-  for (let r = MASK_C - 1; r <= MASK_C + 1; r++) {
-    for (let c = MASK_C - 1; c <= MASK_C + 1; c++) {
-      const i = r * MASK_N + c;
-      if (i !== CENTER) m[i] = 1;
-    }
+function topo() { return state.topo; }
+
+function defaultMask(t) {
+  const m = new Uint8Array(t.maskCells.length);
+  for (let i = 0; i < m.length; i++) {
+    if (i !== t.centreIndex && t.maskCells[i].ring === 1) m[i] = 1;
   }
   return m;
 }
 function maskCount(mask) {
+  const c = topo().centreIndex;
   let n = 0;
-  for (let i = 0; i < mask.length; i++) if (i !== CENTER && mask[i]) n++;
+  for (let i = 0; i < mask.length; i++) if (i !== c && mask[i]) n++;
   return n;
 }
-/** Offsets are stored as flat index deltas for interior cells plus dr/dc for edges. */
-function buildOffsets(mask, cols) {
-  const dr = [], dc = [];
-  for (let i = 0; i < mask.length; i++) {
-    if (i === CENTER || !mask[i]) continue;
-    dr.push(((i / MASK_N) | 0) - MASK_C);
-    dc.push((i % MASK_N) - MASK_C);
+/** One offset list per row-parity variant. Interior cells use `flat`, a single
+    additive index; edge cells fall back to dr/dc with wrap or clip. */
+function buildOffsets(mask, cols, t) {
+  t = t || topo();
+  const variants = [];
+  let padR = 0, padC = 0, n = 0;
+  for (let v = 0; v < t.variants; v++) {
+    const dr = [], dc = [];
+    for (let i = 0; i < mask.length; i++) {
+      if (i === t.centreIndex || !mask[i]) continue;
+      const d = t.delta(t.maskCells[i], v);
+      dr.push(d.dr); dc.push(d.dc);
+    }
+    n = dr.length;
+    const flat = new Int32Array(n);
+    for (let i = 0; i < n; i++) {
+      flat[i] = dr[i] * cols + dc[i];
+      if (Math.abs(dr[i]) > padR) padR = Math.abs(dr[i]);
+      if (Math.abs(dc[i]) > padC) padC = Math.abs(dc[i]);
+    }
+    variants.push({ dr: Int32Array.from(dr), dc: Int32Array.from(dc), flat });
   }
-  const n = dr.length;
-  const flat = new Int32Array(n);
-  let padR = 0, padC = 0;
-  for (let i = 0; i < n; i++) {
-    flat[i] = dr[i] * cols + dc[i];
-    if (Math.abs(dr[i]) > padR) padR = Math.abs(dr[i]);
-    if (Math.abs(dc[i]) > padC) padC = Math.abs(dc[i]);
-  }
-  return { n, dr: Int32Array.from(dr), dc: Int32Array.from(dc), flat, padR, padC };
+  return { n, variants, padR, padC, multi: t.variants > 1 };
 }
 function rebuildOffsets() {
-  for (const k of KINDS) state.offsets[k] = buildOffsets(state.masks[k], state.cols);
+  // `flat` bakes in the column stride, so both sets must be rebuilt on a resize.
+  for (const k of KINDS) {
+    state.offsets[k] = buildOffsets(state.masks[k], state.cols);
+    rules.offsets[k] = buildOffsets(rules.masks[k], state.cols);
+  }
 }
 
 /* ============================ neighbour counting ============================ */
-function countFlat(grid, i, off) {
-  const f = off.flat, n = off.n;
+function countFlat(grid, i, off, v) {
+  const f = off.variants[v].flat, n = off.n;
   let k = 0;
   for (let j = 0; j < n; j++) k += grid[i + f[j]];
   return k;
 }
-function countWrap(grid, rows, cols, r, c, off) {
-  const dr = off.dr, dc = off.dc, n = off.n;
+function countWrap(grid, rows, cols, r, c, off, v) {
+  const va = off.variants[v], dr = va.dr, dc = va.dc, n = off.n;
   let k = 0;
   for (let j = 0; j < n; j++) {
     let rr = r + dr[j]; if (rr < 0) rr += rows; else if (rr >= rows) rr -= rows;
@@ -698,8 +1048,8 @@ function countWrap(grid, rows, cols, r, c, off) {
   }
   return k;
 }
-function countClip(grid, rows, cols, r, c, off) {
-  const dr = off.dr, dc = off.dc, n = off.n;
+function countClip(grid, rows, cols, r, c, off, v) {
+  const va = off.variants[v], dr = va.dr, dc = va.dc, n = off.n;
   let k = 0;
   for (let j = 0; j < n; j++) {
     const rr = r + dr[j], cc = c + dc[j];
@@ -733,14 +1083,71 @@ function allocate(cols, rows) {
 function gridDims(cellSize) {
   return normaliseDims(Math.floor(BASE_W / cellSize), Math.floor(BASE_H / cellSize));
 }
+/** Hexagons in odd-r offset coordinates only wrap cleanly across an even number
+    of rows: with an odd count the seam lands on two rows of the same parity and
+    neighbour relations stop being symmetric. So wrapping forces an even row
+    count, and the odd-centre option is disabled while that holds. */
+/** How the seam constrains dimensions when wrapping is on. Hexagons need an
+    even row count; triangles need both even, because an odd count puts two
+    same-orientation cells against each other at the join. */
+function wrapStep() {
+  return state.wrap ? topo().caps.wrapStep : { cols: 1, rows: 1 };
+}
+function wrapConstrains() {
+  const w = wrapStep();
+  return w.cols > 1 || w.rows > 1;
+}
 function normaliseDims(cols, rows) {
   let c = clampInt(cols, MIN_DIM, MAX_COLS);
   let r = clampInt(rows, MIN_DIM, MAX_ROWS);
-  if (state.oddDims) {
+  const step = wrapStep();
+  if (wrapConstrains()) {
+    c -= c % step.cols;
+    r -= r % step.rows;
+  } else if (state.oddDims) {
     if (c % 2 === 0) c--;
     if (r % 2 === 0) r--;
   }
-  return { cols: c, rows: r };
+  return { cols: clampInt(c, MIN_DIM, MAX_COLS), rows: clampInt(r, MIN_DIM, MAX_ROWS) };
+}
+
+/** Switch tiling. Masks are sized by the topology, so they and every derived
+    array are rebuilt; the grid contents survive untouched. */
+function setTopology(id) {
+  const t = TOPOLOGIES[id];
+  if (!t || t === state.topo) return;
+  state.topo = t;
+  quietEdits = true;
+  for (const k of KINDS) {
+    state.masks[k] = defaultMask(t);
+    rules.masks[k] = defaultMask(t);
+    state.offsets[k] = buildOffsets(state.masks[k], state.cols);
+    resizeRates(k, false);
+  }
+  state.decayDir = new Int8Array(state.offsets.decay.n + 1).fill(1);
+  for (const k of KINDS) { renderPatternButtons(k); renderMask(k); renderRules(k); }
+  quietEdits = false;
+  commitRules();
+  syncTopologyUI();
+  setGrid(state.cols, state.rows);
+  resetView();
+  resizeCanvas();
+}
+function syncTopologyUI() {
+  const t = topo();
+  for (const b of document.querySelectorAll('[data-topo]')) {
+    b.setAttribute('aria-selected', String(b.dataset.topo === t.id));
+  }
+  const forced = wrapConstrains();
+  const odd = $('oddDims');
+  odd.disabled = forced;
+  $('oddField').classList.toggle('off', forced);
+  odd.title = forced
+    ? 'Unavailable while this tiling wraps: the seam needs the grid rounded to whole cell pairs.'
+    : '';
+  $('topoNote').textContent = forced
+    ? t.note + ' Turn wrapping off to size the grid freely.'
+    : (t.note || 'Cells are square, so every neighbour offset is the same on every row.');
 }
 function centreCell() {
   return { c: (state.cols - 1) >> 1, r: (state.rows - 1) >> 1 };
@@ -793,7 +1200,7 @@ function setCellSize(px) {
 }
 function recount() {
   let live = 0, spent = 0;
-  const g = state.grid, a = state.accum, thr = state.threshold;
+  const g = state.grid, a = state.accum, thr = rules.threshold;
   for (let i = 0; i < g.length; i++) {
     live += g[i];
     if (thr > 0 && a[i] >= thr) spent++;
@@ -860,34 +1267,36 @@ function syncProbs(kind) {
   const p = new Float32Array(r.length);
   for (let i = 0; i < r.length; i++) p[i] = r[i] / 100;
   state.probs[kind] = p;
-  markRulesChanged();
 }
 
 /* ============================ simulation ============================ */
 function step() {
   const rows = state.rows, cols = state.cols;
   const grid = state.grid, next = state.next, acc = state.accum;
-  const bO = state.offsets.birth, dO = state.offsets.death, cO = state.offsets.decay;
-  const bP = state.probs.birth, dP = state.probs.death, cP = state.probs.decay;
-  const thr = state.threshold, decayOn = thr > 0, dir = state.decayDir;
-  const resetOnBirth = state.resetOnBirth;
-  const slow = state.wrap ? countWrap : countClip;
+  const bO = rules.offsets.birth, dO = rules.offsets.death, cO = rules.offsets.decay;
+  const bP = rules.probs.birth, dP = rules.probs.death, cP = rules.probs.decay;
+  const thr = rules.threshold, decayOn = thr > 0, dir = rules.decayDir;
+  const resetOnBirth = rules.resetOnBirth;
+  const slow = rules.wrap ? countWrap : countClip;
   const rnd = Math.random;
 
   const padR = Math.max(bO.padR, dO.padR, decayOn ? cO.padR : 0);
   const padC = Math.max(bO.padC, dO.padC, decayOn ? cO.padC : 0);
+  const pmode = state.topo.parityMode;
   let live = 0, spent = 0;
 
   for (let r = 0; r < rows; r++) {
     const rowInside = r >= padR && r < rows - padR;
+    const rowPar = pmode === 0 ? 0 : (r & 1);
     const base = r * cols;
     for (let c = 0; c < cols; c++) {
       const i = base + c;
+      const v = pmode === 2 ? ((rowPar + c) & 1) : rowPar;
       const fast = rowInside && c >= padC && c < cols - padC;
       let forcedDead = false;
 
       if (decayOn) {
-        const n = fast ? countFlat(grid, i, cO) : slow(grid, rows, cols, r, c, cO);
+        const n = fast ? countFlat(grid, i, cO, v) : slow(grid, rows, cols, r, c, cO, v);
         const p = cP[n];
         if (p > 0 && rnd() < p) {
           const v = acc[i] + dir[n];
@@ -896,19 +1305,19 @@ function step() {
         if (acc[i] >= thr) { forcedDead = true; spent++; }
       }
 
-      let v = 0;
+      let out = 0;
       if (!forcedDead) {
         if (grid[i] === 1) {
-          const n = fast ? countFlat(grid, i, dO) : slow(grid, rows, cols, r, c, dO);
-          v = rnd() < dP[n] ? 0 : 1;
+          const n = fast ? countFlat(grid, i, dO, v) : slow(grid, rows, cols, r, c, dO, v);
+          out = rnd() < dP[n] ? 0 : 1;
         } else {
-          const n = fast ? countFlat(grid, i, bO) : slow(grid, rows, cols, r, c, bO);
-          v = rnd() < bP[n] ? 1 : 0;
-          if (v === 1 && resetOnBirth) acc[i] = 0;
+          const n = fast ? countFlat(grid, i, bO, v) : slow(grid, rows, cols, r, c, bO, v);
+          out = rnd() < bP[n] ? 1 : 0;
+          if (out === 1 && resetOnBirth) acc[i] = 0;
         }
       }
-      next[i] = v;
-      live += v;
+      next[i] = out;
+      live += out;
     }
   }
 
@@ -963,21 +1372,58 @@ function singleStep() {
 }
 
 /* ============================ rendering ============================ */
+const COLOUR_MODES = ['rates', 'decay', 'combined'];
+const DQ = 21;                                   // depletion quantisation for the 2D LUT
+
+const THEMES = [
+  { name: 'Ember',     liveLo: '#ffffff', liveHi: '#ff9a00', deadLo: '#15151d', deadHi: '#0e2e63' },
+  { name: 'Mono',      liveLo: '#ffffff', liveHi: '#7d7d85', deadLo: '#08080a', deadHi: '#31313a' },
+  { name: 'Ice',       liveLo: '#eafcff', liveHi: '#2fb8ff', deadLo: '#080f16', deadHi: '#0f3c58' },
+  { name: 'Phosphor',  liveLo: '#d8ffd0', liveHi: '#22ff66', deadLo: '#03110a', deadHi: '#0a3a1e' },
+  { name: 'Acid',      liveLo: '#f6ff6b', liveHi: '#ff2bd1', deadLo: '#100519', deadHi: '#3d0a55' },
+  { name: 'Magma',     liveLo: '#fff3b0', liveHi: '#ff2d00', deadLo: '#120507', deadHi: '#5e0f22' },
+  { name: 'Moss',      liveLo: '#f0ffd8', liveHi: '#3fbf5f', deadLo: '#0a120b', deadHi: '#1a4227' },
+  { name: 'Orchid',    liveLo: '#ffffff', liveHi: '#a06bff', deadLo: '#0c0916', deadHi: '#2f1a63' },
+  { name: 'Blueprint', liveLo: '#ffffff', liveHi: '#7fc4ff', deadLo: '#061525', deadHi: '#0d4d90' },
+  { name: 'Rust',      liveLo: '#ffe9c7', liveHi: '#c43b1a', deadLo: '#13100c', deadHi: '#4d2611' }
+];
+
+/** Endpoints honouring the per-gradient inversion toggles. */
+function gradientEnds(which) {
+  const c = state.colours;
+  const lo = which === 'live' ? c.liveLo : c.deadLo;
+  const hi = which === 'live' ? c.liveHi : c.deadHi;
+  const flip = which === 'live' ? state.invertLive : state.invertDead;
+  return flip ? [hexToRgb(hi), hexToRgb(lo)] : [hexToRgb(lo), hexToRgb(hi)];
+}
+
 const liveLUT = new Uint32Array(101);
 const deadLUT = new Uint32Array(101);
+// Combined mode: hue and chroma come from the transition gradient, lightness is
+// scaled by how depleted the cell is. Two extra colour pickers would say the
+// same thing less clearly, so the existing four drive both channels.
+const liveLUT2 = new Uint32Array(101 * DQ);
+const deadLUT2 = new Uint32Array(101 * DQ);
+
 function buildLUTs() {
-  const lo1 = hexToRgb(state.colours.liveLo), hi1 = hexToRgb(state.colours.liveHi);
-  const lo2 = hexToRgb(state.colours.deadLo), hi2 = hexToRgb(state.colours.deadHi);
+  const [lo1, hi1] = gradientEnds('live');
+  const [lo2, hi2] = gradientEnds('dead');
+  const infl = state.decayInfluence / 100;
   for (let i = 0; i <= 100; i++) {
     const t = i / 100;
-    liveLUT[i] = packRGB(
-      Math.round(lo1[0] + (hi1[0] - lo1[0]) * t),
-      Math.round(lo1[1] + (hi1[1] - lo1[1]) * t),
-      Math.round(lo1[2] + (hi1[2] - lo1[2]) * t));
-    deadLUT[i] = packRGB(
-      Math.round(lo2[0] + (hi2[0] - lo2[0]) * t),
-      Math.round(lo2[1] + (hi2[1] - lo2[1]) * t),
-      Math.round(lo2[2] + (hi2[2] - lo2[2]) * t));
+    const lr = Math.round(lo1[0] + (hi1[0] - lo1[0]) * t);
+    const lg = Math.round(lo1[1] + (hi1[1] - lo1[1]) * t);
+    const lb = Math.round(lo1[2] + (hi1[2] - lo1[2]) * t);
+    const dr = Math.round(lo2[0] + (hi2[0] - lo2[0]) * t);
+    const dg = Math.round(lo2[1] + (hi2[1] - lo2[1]) * t);
+    const db = Math.round(lo2[2] + (hi2[2] - lo2[2]) * t);
+    liveLUT[i] = packRGB(lr, lg, lb);
+    deadLUT[i] = packRGB(dr, dg, db);
+    for (let q = 0; q < DQ; q++) {
+      const k = 1 - (q / (DQ - 1)) * infl;
+      liveLUT2[i * DQ + q] = packRGB(Math.round(lr * k), Math.round(lg * k), Math.round(lb * k));
+      deadLUT2[i * DQ + q] = packRGB(Math.round(dr * k), Math.round(dg * k), Math.round(db * k));
+    }
   }
 }
 
@@ -985,30 +1431,40 @@ function buildLUTs() {
 function paintCells(c0, r0, c1, r1) {
   const cols = state.cols, rows = state.rows;
   const grid = state.grid, acc = state.accum, px = cellPix;
-  const byRates = state.colourMode === 'rates';
-  const thr = state.threshold;
-  const bR = state.rates.birth, dR = state.rates.death;
-  const bO = state.offsets.birth, dO = state.offsets.death;
-  const slow = state.wrap ? countWrap : countClip;
+  const mode = state.colourMode;
+  const wantRates = mode !== 'decay';
+  const wantDecay = mode !== 'rates';
+  const thr = rules.threshold;
+  const bR = rules.rates.birth, dR = rules.rates.death;
+  const bO = rules.offsets.birth, dO = rules.offsets.death;
+  const slow = rules.wrap ? countWrap : countClip;
   const padR = Math.max(bO.padR, dO.padR), padC = Math.max(bO.padC, dO.padC);
 
+  const pmode = state.topo.parityMode;
   for (let r = r0; r < r1; r++) {
     const rowInside = r >= padR && r < rows - padR;
+    const rowPar = pmode === 0 ? 0 : (r & 1);
     const base = r * cols;
     for (let c = c0; c < c1; c++) {
       const i = base + c;
+      const v = pmode === 2 ? ((rowPar + c) & 1) : rowPar;
       const alive = grid[i] === 1;
-      let t;
-      if (byRates) {
+      let t = 0;
+      if (wantRates) {
         const off = alive ? dO : bO;
         const n = (rowInside && c >= padC && c < cols - padC)
-          ? countFlat(grid, i, off)
-          : slow(grid, rows, cols, r, c, off);
+          ? countFlat(grid, i, off, v)
+          : slow(grid, rows, cols, r, c, off, v);
         t = (alive ? dR[n] : bR[n]) | 0;
-      } else {
-        t = thr > 0 ? clampInt(acc[i] * 100 / thr, 0, 100) : 0;
       }
-      px[i] = alive ? liveLUT[t] : deadLUT[t];
+      const d = wantDecay && thr > 0 ? clamp(acc[i] / thr, 0, 1) : 0;
+      if (mode === 'combined') {
+        const q = Math.round(d * (DQ - 1));
+        px[i] = alive ? liveLUT2[t * DQ + q] : deadLUT2[t * DQ + q];
+      } else {
+        const k = mode === 'decay' ? Math.round(d * 100) : t;
+        px[i] = alive ? liveLUT[k] : deadLUT[k];
+      }
     }
   }
 }
@@ -1016,13 +1472,76 @@ function paintCells(c0, r0, c1, r1) {
 function draw() {
   if (gpu.active) drawGPU(); else drawCPU();
   drawReticle();
+  drawOverlay();
+}
+
+/** Cells visible in the current view, as an inclusive-exclusive index box.
+    Padded by one so partially visible cells at the edge still get drawn. */
+function visibleBox() {
+  const box = worldBox(), v = state.view;
+  const t = topo();
+  const x0 = v.x, y0 = v.y, x1 = v.x + box.w / v.zoom, y1 = v.y + box.h / v.zoom;
+  const a = t.pick(x0, y0), b = t.pick(x1, y1);
+  const pad = t.visPad;
+  return {
+    c0: clampInt(Math.min(a.c, b.c) - pad, 0, state.cols - 1),
+    r0: clampInt(Math.min(a.r, b.r) - pad, 0, state.rows - 1),
+    c1: clampInt(Math.max(a.c, b.c) + pad + 1, 1, state.cols),
+    r1: clampInt(Math.max(a.r, b.r) + pad + 1, 1, state.rows)
+  };
 }
 
 function drawCPU() {
+  if (!canvas.width || !canvas.height) return;
+  if (topo().id === 'square') drawCPUSquare();
+  else drawCPUPolygon();
+}
+
+/** Polygon tilings can't use the one-pixel-per-cell blit, so cells are grouped
+    by colour and each group filled as a single path. That keeps the fill count
+    near the number of distinct colours rather than the number of cells. */
+function drawCPUPolygon() {
   const cw = canvas.width, ch = canvas.height;
-  if (!cw || !ch) return;
+  const box = worldBox(), v = state.view, t = topo();
+  const vis = visibleBox();
+  paintCells(vis.c0, vis.r0, vis.c1, vis.r1);
+
+  const scale = cw / (box.w / v.zoom);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = rgbToCss(gradientEnds('dead')[0]);
+  ctx.fillRect(0, 0, cw, ch);
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(-v.x, -v.y);
+
+  const buckets = new Map();
+  for (let r = vis.r0; r < vis.r1; r++) {
+    for (let c = vis.c0; c < vis.c1; c++) {
+      const key = cellPix[r * state.cols + c];
+      let path = buckets.get(key);
+      if (!path) { path = new Path2D(); buckets.set(key, path); }
+      const pts = t.corners(c, r);
+      path.moveTo(pts[0][0], pts[0][1]);
+      for (let k = 1; k < pts.length; k++) path.lineTo(pts[k][0], pts[k][1]);
+      path.closePath();
+    }
+  }
+  const stroke = state.borders && scale >= 5;
+  ctx.lineWidth = 1 / scale;
+  ctx.strokeStyle = 'rgba(0,0,0,.45)';
+  for (const [key, path] of buckets) {
+    ctx.fillStyle = 'rgb(' + (key & 255) + ',' + ((key >>> 8) & 255) + ',' + ((key >>> 16) & 255) + ')';
+    ctx.fill(path);
+    if (stroke) ctx.stroke(path);
+  }
+  ctx.restore();
+}
+
+function drawCPUSquare() {
+  const cw = canvas.width, ch = canvas.height;
+  const box = worldBox();
   const { zoom, x, y } = state.view;
-  const viewCols = state.cols / zoom, viewRows = state.rows / zoom;
+  const viewCols = box.w / zoom, viewRows = box.h / zoom;
 
   const c0 = clampInt(Math.floor(x), 0, state.cols - 1);
   const r0 = clampInt(Math.floor(y), 0, state.rows - 1);
@@ -1037,7 +1556,7 @@ function drawCPU() {
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = state.colours.deadLo;
+  ctx.fillStyle = rgbToCss(gradientEnds('dead')[0]);
   ctx.fillRect(0, 0, cw, ch);
   ctx.drawImage(cellCanvas, c0, r0, c1 - c0, r1 - r0, dx, dy, (c1 - c0) * scale, (r1 - r0) * scale);
 
@@ -1068,13 +1587,14 @@ function resizeCanvas() {
   const frame = $('frame');
   const box = frame.getBoundingClientRect();
   if (box.width < 8 || box.height < 8) return;
-  const aspect = state.cols / state.rows;
+  const world = worldBox();
+  const aspect = world.w / world.h;
   let w = box.width - 2, h = box.height - 2;
   if (w / h > aspect) w = h * aspect; else h = w / aspect;
   w = Math.max(60, Math.floor(w));
   h = Math.max(40, Math.floor(h));
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  for (const el of [canvas, gpuCanvas]) {
+  for (const el of [canvas, gpuCanvas, $('ov')]) {
     el.style.width = w + 'px';
     el.style.height = h + 'px';
     el.width = Math.round(w * dpr);
@@ -1104,12 +1624,23 @@ struct Params {
   offB : vec4<u32>,
   offC : vec4<u32>,
   vis : vec4<u32>,
+  offD : vec4<u32>,          // variant-1 offset bases per kind, plus topology id
 };
+const HEX_V : f32 = 0.86602540378;
+const HEX_H : f32 = 1.15470053838;
+const TRI_H : f32 = 0.86602540378;
 `;
 const P_COUNT = `
-fn countAt(r : i32, c : i32, base : u32, n : u32) -> u32 {
+fn parityOf(r : i32, c : i32) -> i32 {
+  // 0 square (single list), 1 hexagon (row parity), 2 triangle (row + column).
+  if (P.offD.w == 1u) { return r & 1; }
+  if (P.offD.w == 2u) { return (r + c) & 1; }
+  return 0;
+}
+fn countAt(r : i32, c : i32, base0 : u32, base1 : u32, n : u32) -> u32 {
   let rows = i32(P.dims.y);
   let wide = i32(P.dims.x);
+  let base = select(base0, base1, parityOf(r, c) == 1);
   var k : u32 = 0u;
   for (var i : u32 = 0u; i < n; i = i + 1u) {
     var rr = r + offs[base + i * 2u];
@@ -1162,7 +1693,7 @@ fn stepMain(@builtin(global_invocation_id) gid : vec3<u32>) {
   var acc = (cell >> 8u) & 255u;
   var forced = false;
   if (P.flags.z == 1u) {
-    let n = countAt(i32(r), i32(c), P.offB.x, P.offB.y);
+    let n = countAt(i32(r), i32(c), P.offB.x, P.offD.z, P.offB.y);
     let raw = rates[P.offC.x + n];
     let p = abs(raw);
     if (p > 0.0 && nextRand() < p) {
@@ -1177,10 +1708,10 @@ fn stepMain(@builtin(global_invocation_id) gid : vec3<u32>) {
   var out : u32 = 0u;
   if (!forced) {
     if (alive) {
-      let n = countAt(i32(r), i32(c), P.offA.z, P.offA.w);
+      let n = countAt(i32(r), i32(c), P.offA.z, P.offD.y, P.offA.w);
       if (nextRand() >= rates[P.offB.w + n]) { out = 1u; }
     } else {
-      let n = countAt(i32(r), i32(c), P.offA.x, P.offA.y);
+      let n = countAt(i32(r), i32(c), P.offA.x, P.offD.x, P.offA.y);
       if (nextRand() < rates[P.offB.z + n]) {
         out = 1u;
         if (P.flags.x == 1u) { acc = 0u; }
@@ -1210,20 +1741,27 @@ fn shadeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
   let cell = src[idx];
   let alive = (cell & 1u) == 1u;
   var t : f32 = 0.0;
-  if (P.flags.w == 0u) {
+  // flags.w: 0 = transition odds, 1 = depletion, 2 = combined
+  if (P.flags.w != 1u) {
     if (alive) {
-      let n = countAt(i32(r), i32(c), P.offA.z, P.offA.w);
+      let n = countAt(i32(r), i32(c), P.offA.z, P.offD.y, P.offA.w);
       t = rates[P.offB.w + n];
     } else {
-      let n = countAt(i32(r), i32(c), P.offA.x, P.offA.y);
+      let n = countAt(i32(r), i32(c), P.offA.x, P.offD.x, P.offA.y);
       t = rates[P.offB.z + n];
     }
-  } else if (P.dims.w > 0u) {
-    t = clamp(f32((cell >> 8u) & 255u) / f32(P.dims.w), 0.0, 1.0);
   }
+  var d : f32 = 0.0;
+  if (P.flags.w != 0u && P.dims.w > 0u) {
+    d = clamp(f32((cell >> 8u) & 255u) / f32(P.dims.w), 0.0, 1.0);
+  }
+  if (P.flags.w == 1u) { t = d; }
   let lo = select(P.deadLo, P.liveLo, alive);
   let hi = select(P.deadHi, P.liveHi, alive);
-  let col = mix(lo, hi, t);
+  var col = mix(lo, hi, t);
+  if (P.flags.w == 2u) {
+    col = col * (1.0 - d * (f32(P.offC.w) / 100.0));
+  }
   tint[idx] = pack4x8unorm(vec4<f32>(col.x, col.y, col.z, 1.0));
 }
 `;
@@ -1252,31 +1790,86 @@ fn vsMain(@builtin(vertex_index) vi : u32) -> @builtin(position) vec4<f32> {
   var pts = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
   return vec4<f32>(pts[vi], 0.0, 1.0);
 }
+fn axialRound(qf : f32, rf : f32) -> vec2<i32> {
+  let sf = -qf - rf;
+  var q = round(qf);
+  var r = round(rf);
+  let s = round(sf);
+  let dq = abs(q - qf);
+  let dr = abs(r - rf);
+  let ds = abs(s - sf);
+  if (dq > dr && dq > ds) { q = -r - s; } else if (dr > ds) { r = -q - s; }
+  return vec2<i32>(i32(q), i32(r));
+}
 @fragment
 fn fsMain(@builtin(position) fc : vec4<f32>) -> @location(0) vec4<f32> {
-  let cx = P.view.x + (fc.x / P.screen.x) * P.view.z;
-  let cy = P.view.y + (fc.y / P.screen.y) * P.view.w;
-  let ci = clamp(floor(cx), 0.0, f32(P.dims.x) - 1.0);
-  let ri = clamp(floor(cy), 0.0, f32(P.dims.y) - 1.0);
-  var col = unpack4x8unorm(tint[u32(ri) * P.dims.x + u32(ci)]);
-  if (P.screen.w > 0.5) {
-    if (fract(cx) * P.screen.z < 1.0 || fract(cy) * P.screen.z < 1.0) {
-      col = vec4<f32>(col.xyz * 0.55, 1.0);
+  let wx = P.view.x + (fc.x / P.screen.x) * P.view.z;
+  let wy = P.view.y + (fc.y / P.screen.y) * P.view.w;
+  var ci : i32;
+  var ri : i32;
+  var edge : f32 = 1.0;                 // distance-to-edge proxy, 0 = on the border
+  if (P.offD.w == 1u) {
+    let rf = (wy - HEX_H * 0.5) / HEX_V;
+    let a = axialRound((wx - 0.5) - rf * 0.5, rf);
+    ri = a.y;
+    ci = a.x + ((a.y - (a.y & 1)) >> 1);
+    // Hex edge test: half-width minus the largest of the three axis projections.
+    let cxp = f32(ci) + 0.5 + f32(a.y & 1) * 0.5;
+    let cyp = f32(ri) * HEX_V + HEX_H * 0.5;
+    let px = wx - cxp;
+    let py = wy - cyp;
+    let d = max(abs(px), max(abs(0.5 * px + 0.86602540378 * py), abs(-0.5 * px + 0.86602540378 * py)));
+    edge = 0.5 - d;
+  } else if (P.offD.w == 2u) {
+    let rr = floor(wy / TRI_H);
+    let fy = wy / TRI_H - rr;
+    let kk = floor(wx * 2.0);
+    let fx = wx * 2.0 - kk;
+    ri = i32(rr);
+    let k = i32(kk);
+    if (((ri + k) & 1) == 0) { ci = select(k - 1, k, fx + fy >= 1.0); }
+    else { ci = select(k - 1, k, fx >= fy); }
+    // Distance to the nearest of the three edges; the slanted normals are unit.
+    let x0 = f32(ci) * 0.5;
+    let y0 = f32(ri) * TRI_H;
+    let p = vec2<f32>(wx, wy);
+    if (((ri + ci) & 1) == 0) {
+      let a = vec2<f32>(x0, y0 + TRI_H);
+      let b = vec2<f32>(x0 + 1.0, y0 + TRI_H);
+      edge = min(y0 + TRI_H - wy,
+                 min(dot(p - a, vec2<f32>(TRI_H, 0.5)), dot(p - b, vec2<f32>(-TRI_H, 0.5))));
+    } else {
+      let a = vec2<f32>(x0, y0);
+      let b = vec2<f32>(x0 + 1.0, y0);
+      edge = min(wy - y0,
+                 min(dot(p - a, vec2<f32>(TRI_H, -0.5)), dot(p - b, vec2<f32>(-TRI_H, -0.5))));
     }
+  } else {
+    ci = i32(floor(wx));
+    ri = i32(floor(wy));
+    edge = min(min(fract(wx), 1.0 - fract(wx)), min(fract(wy), 1.0 - fract(wy)));
+  }
+  if (ci < 0 || ri < 0 || ci >= i32(P.dims.x) || ri >= i32(P.dims.y)) {
+    return vec4<f32>(P.deadLo.xyz, 1.0);
+  }
+  var col = unpack4x8unorm(tint[u32(ri) * P.dims.x + u32(ci)]);
+  if (P.screen.w > 0.5 && edge * P.screen.z < 1.0) {
+    col = vec4<f32>(col.xyz * 0.55, 1.0);
   }
   return vec4<f32>(col.xyz, 1.0);
 }
 `;
 
-const MAX_OFFS = (MASK_N * MASK_N - 1) * 2 * 3;   // dr,dc pairs for three masks
-const MAX_RATES = (MASK_N * MASK_N) * 3;
+const MAX_MASK = 81;                       // largest mask cell count
+const MAX_OFFS = MAX_MASK * 2 * 2 * 3;     // dr,dc pairs x 2 variants x 3 kinds
+const MAX_RATES = MAX_MASK * 3;
 
 const gpu = {
   supported: false, ready: false, active: false, fatal: false, error: '', note: '',
   device: null, ctx: null, format: null,
   stepPipe: null, shadePipe: null, renderPipe: null, resamplePipe: null,
   buf: {}, bg: {}, bases: {}, cells: 0, cur: 0,
-  params: new ArrayBuffer(192), pf: null, pu: null,
+  params: new ArrayBuffer(208), pf: null, pu: null,
   seedCell: new Uint32Array(1), seed: 1,
   upload: null, mirror: null, mirrorGen: -1, oldDims: null, rowScratch: new Uint32Array(MAX_COLS),
   rulesDirty: true, hold: false, gen: 0, retries: 0, tallyValid: false, recountPending: false,
@@ -1418,13 +2011,17 @@ function uploadRules() {
   const rates = new Float32Array(MAX_RATES);
   let p = 0, q = 0;
   for (const k of KINDS) {
-    const o = state.offsets[k];
-    gpu.bases[k + 'Off'] = p;
-    for (let i = 0; i < o.n; i++) { offs[p++] = o.dr[i]; offs[p++] = o.dc[i]; }
+    const o = rules.offsets[k];
+    // One list per row-parity variant; single-variant tilings point both at the same run.
+    for (let v = 0; v < 2; v++) {
+      const src = o.variants[Math.min(v, o.variants.length - 1)];
+      gpu.bases[k + 'Off' + v] = p;
+      for (let i = 0; i < o.n; i++) { offs[p++] = src.dr[i]; offs[p++] = src.dc[i]; }
+    }
     gpu.bases[k + 'Rate'] = q;
-    const r = state.rates[k];
+    const r = rules.rates[k];
     for (let i = 0; i < r.length; i++) {
-      rates[q++] = k === 'decay' && state.decayDir[i] < 0 ? -r[i] / 100 : r[i] / 100;
+      rates[q++] = k === 'decay' && rules.decayDir[i] < 0 ? -r[i] / 100 : r[i] / 100;
     }
   }
   gpu.device.queue.writeBuffer(gpu.buf.offs, 0, offs);
@@ -1433,34 +2030,35 @@ function uploadRules() {
 }
 
 function visRect() {
-  const v = state.view;
-  const vw = state.cols / v.zoom, vh = state.rows / v.zoom;
-  const c0 = clampInt(Math.floor(v.x), 0, state.cols - 1);
-  const r0 = clampInt(Math.floor(v.y), 0, state.rows - 1);
-  const c1 = clampInt(Math.ceil(v.x + vw), c0 + 1, state.cols);
-  const r1 = clampInt(Math.ceil(v.y + vh), r0 + 1, state.rows);
-  return { c0, r0, w: c1 - c0, h: r1 - r0, vw, vh };
+  const v = state.view, box = worldBox();
+  const vw = box.w / v.zoom, vh = box.h / v.zoom;
+  const b = visibleBox();
+  return { c0: b.c0, r0: b.r0, w: b.c1 - b.c0, h: b.r1 - b.r0, vw, vh };
 }
 
 function writeParams(vis) {
-  const pf = gpu.pf, pu = gpu.pu, col = state.colours;
-  const put = (at, hex) => { const c = hexToRgb(hex); pf[at] = c[0] / 255; pf[at + 1] = c[1] / 255; pf[at + 2] = c[2] / 255; pf[at + 3] = 1; };
-  put(0, col.liveLo); put(4, col.liveHi); put(8, col.deadLo); put(12, col.deadHi);
+  const pf = gpu.pf, pu = gpu.pu;
+  const put = (at, rgb) => { pf[at] = rgb[0] / 255; pf[at + 1] = rgb[1] / 255; pf[at + 2] = rgb[2] / 255; pf[at + 3] = 1; };
+  const [liveLo, liveHi] = gradientEnds('live');
+  const [deadLo, deadHi] = gradientEnds('dead');
+  put(0, liveLo); put(4, liveHi); put(8, deadLo); put(12, deadHi);
   pf[16] = state.view.x; pf[17] = state.view.y; pf[18] = vis.vw; pf[19] = vis.vh;
   const cw = gpuCanvas.width, ch = gpuCanvas.height, scale = cw / vis.vw;
   pf[20] = cw; pf[21] = ch; pf[22] = scale; pf[23] = state.borders && scale >= 5 ? 1 : 0;
-  pu[24] = state.cols; pu[25] = state.rows; pu[26] = state.wrap ? 1 : 0; pu[27] = state.threshold;
-  pu[28] = state.resetOnBirth ? 1 : 0; pu[29] = gpu.seed >>> 0;
-  pu[30] = state.threshold > 0 ? 1 : 0; pu[31] = state.colourMode === 'rates' ? 0 : 1;
-  pu[32] = gpu.bases.birthOff; pu[33] = state.offsets.birth.n;
-  pu[34] = gpu.bases.deathOff; pu[35] = state.offsets.death.n;
-  pu[36] = gpu.bases.decayOff; pu[37] = state.offsets.decay.n;
+  pu[24] = state.cols; pu[25] = state.rows; pu[26] = rules.wrap ? 1 : 0; pu[27] = rules.threshold;
+  pu[28] = rules.resetOnBirth ? 1 : 0; pu[29] = gpu.seed >>> 0;
+  pu[30] = rules.threshold > 0 ? 1 : 0; pu[31] = COLOUR_MODES.indexOf(state.colourMode);
+  pu[32] = gpu.bases.birthOff0; pu[33] = rules.offsets.birth.n;
+  pu[34] = gpu.bases.deathOff0; pu[35] = rules.offsets.death.n;
+  pu[36] = gpu.bases.decayOff0; pu[37] = rules.offsets.decay.n;
   pu[38] = gpu.bases.birthRate; pu[39] = gpu.bases.deathRate;
   pu[40] = gpu.bases.decayRate;
   pu[41] = gpu.oldDims ? gpu.oldDims.cols : 0;
   pu[42] = gpu.oldDims ? gpu.oldDims.rows : 0;
-  pu[43] = 0;
+  pu[43] = state.decayInfluence;
   pu[44] = vis.c0; pu[45] = vis.r0; pu[46] = vis.w; pu[47] = vis.h;
+  pu[48] = gpu.bases.birthOff1; pu[49] = gpu.bases.deathOff1;
+  pu[50] = gpu.bases.decayOff1; pu[51] = topo().gpuKind;
   gpu.device.queue.writeBuffer(gpu.buf.params, 0, gpu.params);
 }
 
@@ -1587,7 +2185,7 @@ function gpuReadback() {
       // actually run, or the counters flash 0 after every reallocation.
       if (!gpu.tallyValid) return;
       state.live = t[0];
-      state.spent = state.threshold > 0 ? t[1] : 0;
+      state.spent = rules.threshold > 0 ? t[1] : 0;
       updateStats();
     });
     if (snap) readInto(gpu.reads.state, gen, (data) => {
@@ -1715,13 +2313,82 @@ function refreshEngineUI() {
   $('gpuRetry').classList.toggle('hidden', on || !gpu.supported || !gpu.error);
 }
 
+/* ============================ staging ============================ */
+const CHANGE_TAB = { birth: 'rules', death: 'rules', decay: 'decay',
+                     threshold: 'decay', resetOnBirth: 'decay', wrap: 'view', clamp: 'rules' };
+
+/** Record an edit. In live mode this commits at once, so behaviour is unchanged
+    from before staging existed. */
+let quietEdits = false;
+function noteChange(key, label) {
+  if (quietEdits) return;
+  if (state.liveApply) { commitRules(); return; }
+  pending.set(key, label);
+  refreshPendingUI();
+}
+function commitRules() {
+  for (const k of KINDS) {
+    rules.masks[k].set(state.masks[k]);
+    rules.offsets[k] = buildOffsets(rules.masks[k], state.cols);
+    rules.rates[k] = state.rates[k].slice();
+    rules.probs[k] = Float32Array.from(rules.rates[k], (v) => v / 100);
+  }
+  rules.decayDir = state.decayDir.slice();
+  rules.threshold = state.threshold;
+  rules.resetOnBirth = state.resetOnBirth;
+  rules.wrap = state.wrap;
+  gpu.rulesDirty = true;
+  pending.clear();
+  refreshPendingUI();
+  refreshDeterminism();
+  if (!gpu.active) recount();
+  updateStats();
+  scheduleDraw();
+}
+function revertRules() {
+  quietEdits = true;
+  for (const k of KINDS) {
+    state.masks[k].set(rules.masks[k]);
+    state.offsets[k] = buildOffsets(state.masks[k], state.cols);
+    state.rates[k] = rules.rates[k].slice();
+    state.probs[k] = Float32Array.from(state.rates[k], (v) => v / 100);
+  }
+  state.decayDir = rules.decayDir.slice();
+  state.threshold = rules.threshold;
+  state.resetOnBirth = rules.resetOnBirth;
+  state.wrap = rules.wrap;
+  ui.threshold.set(state.threshold);
+  $('resetBirth').checked = state.resetOnBirth;
+  $('wrapEdges').checked = state.wrap;
+  for (const k of KINDS) { renderMask(k); renderRules(k); }
+  quietEdits = false;
+  pending.clear();
+  refreshPendingUI();
+  scheduleDraw();
+}
+function refreshPendingUI() {
+  const n = pending.size;
+  const bar = $('applyBar');
+  bar.classList.toggle('hidden', n === 0);
+  if (n) {
+    const labels = [...pending.values()];
+    const shown = labels.slice(0, 3).join(', ');
+    $('pendingText').textContent = n + (n === 1 ? ' pending change' : ' pending changes');
+    $('pendingDetail').textContent = shown + (labels.length > 3 ? ' +' + (labels.length - 3) + ' more' : '');
+  }
+  const dirtyTabs = new Set([...pending.keys()].map((k) => CHANGE_TAB[k.split(':')[0]] || 'rules'));
+  for (const tab of document.querySelectorAll('.tab')) {
+    tab.classList.toggle('dirty', dirtyTabs.has(tab.dataset.tab));
+  }
+}
+
 /* ============================ determinism ============================ */
 function fractionalRates() {
   let n = 0;
   const scan = (arr) => { for (const v of arr) if (v > 0 && v < 100) n++; };
-  scan(state.rates.birth);
-  scan(state.rates.death);
-  if (state.threshold > 0) scan(state.rates.decay);
+  scan(rules.rates.birth);
+  scan(rules.rates.death);
+  if (rules.threshold > 0) scan(rules.rates.decay);
   return n;
 }
 function refreshDeterminism() {
@@ -1734,28 +2401,29 @@ function refreshDeterminism() {
     ? 'Every active rate is exactly 0% or 100%, so no dice are rolled while stepping. CPU and GPU produce identical runs. The random fill is still random.'
     : n + (n === 1 ? ' rate is' : ' rates are') + ' between 0% and 100%, so every generation rolls against them.';
 }
-function markRulesChanged() {
-  gpu.rulesDirty = true;
-  refreshDeterminism();
-}
-
 /* ============================ view ============================ */
+/** Grid extent in world units. Square is cols x rows; hexagons are slightly
+    wider (odd rows overhang) and shorter per row (0.866 spacing). */
+function worldBox() { return topo().world(state.cols, state.rows); }
+
 function clampView() {
   const v = state.view;
+  const w = worldBox();
   v.zoom = clamp(v.zoom, ZOOM_MIN, ZOOM_MAX);
-  v.x = clamp(v.x, 0, Math.max(0, state.cols - state.cols / v.zoom));
-  v.y = clamp(v.y, 0, Math.max(0, state.rows - state.rows / v.zoom));
+  v.x = clamp(v.x, 0, Math.max(0, w.w - w.w / v.zoom));
+  v.y = clamp(v.y, 0, Math.max(0, w.h - w.h / v.zoom));
 }
 function zoomAt(u, v, factor) {
   const view = state.view;
+  const box = worldBox();
   const z0 = view.zoom;
   const z1 = clamp(z0 * factor, ZOOM_MIN, ZOOM_MAX);
   if (z1 === z0) return;
-  const wx = view.x + u * (state.cols / z0);
-  const wy = view.y + v * (state.rows / z0);
+  const wx = view.x + u * (box.w / z0);
+  const wy = view.y + v * (box.h / z0);
   view.zoom = z1;
-  view.x = wx - u * (state.cols / z1);
-  view.y = wy - v * (state.rows / z1);
+  view.x = wx - u * (box.w / z1);
+  view.y = wy - v * (box.h / z1);
   clampView();
   updateStats();
   scheduleDraw();
@@ -1773,7 +2441,7 @@ function updateStats() {
   $('sizeStat').textContent = state.cols + '×' + state.rows;
   $('gridChip').textContent = state.cols + ' × ' + state.rows;
   $('zoomStat').textContent = state.view.zoom.toFixed(2) + '×';
-  const on = state.threshold > 0;
+  const on = rules.threshold > 0;
   $('spentStat').classList.toggle('off', !on);
   $('spentVal').textContent = on ? fmt(state.spent) : '—';
 }
@@ -1888,7 +2556,7 @@ function onRuleInput(event) {
   if (el.dataset.role === 'dir') {
     state.decayDir[idx] = el.checked ? -1 : 1;
     el.closest('.rule-row').classList.toggle('down', el.checked);
-    markRulesChanged();
+    noteChange('decay:dir' + idx, 'decay direction at ' + idx);
     return;
   }
   if (el.value === '' && el.type === 'number') return;
@@ -1899,32 +2567,54 @@ function onRuleInput(event) {
   for (const sib of row.querySelectorAll('input[type="range"],input[type="number"]')) {
     if (sib !== el) sib.value = String(v);
   }
-  markRulesChanged();
-  if (kind !== 'decay') scheduleDraw();
+  noteChange(kind + ':' + idx, kind + ' rate at ' + idx);
 }
 
 /* ============================ mask grids ============================ */
 function renderMask(kind) {
+  const t = topo();
   const host = $(kind + 'Mask');
-  if (!host.childElementCount) {
+  const mask = state.masks[kind];
+  if (host.dataset.topo !== t.id || !host.childElementCount) {
+    host.dataset.topo = t.id;
+    host.className = 'mask ' + kind + ' ' + t.id;
+    const box = maskBox(t);
+    host.style.aspectRatio = (box.w / box.h).toFixed(4);
+    const cw = (t.maskCell.w / box.w) * 100;
+    const ch = (t.maskCell.h / box.h) * 100;
     const frag = document.createDocumentFragment();
-    for (let i = 0; i < MASK_N * MASK_N; i++) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.dataset.index = String(i);
-      if (i === CENTER) { b.className = 'core'; b.disabled = true; b.setAttribute('aria-label', 'Cell itself'); }
-      else b.setAttribute('aria-label', 'Offset ' + (((i / MASK_N) | 0) - MASK_C) + ',' + ((i % MASK_N) - MASK_C));
-      frag.append(b);
+    // Iterate by row so DOM order stays reading order for tab and screen readers,
+    // even though placement is absolute.
+    for (const row of t.maskRows) {
+      for (const i of row) {
+        const m = t.maskCells[i];
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.index = String(i);
+        b.style.left = (((m.dx - t.maskCell.w / 2) - box.minX) / box.w * 100).toFixed(3) + '%';
+        b.style.top = (((m.dy - t.maskCell.h / 2) - box.minY) / box.h * 100).toFixed(3) + '%';
+        b.style.width = cw.toFixed(3) + '%';
+        b.style.height = ch.toFixed(3) + '%';
+        if (t.maskClass) b.classList.add(t.maskClass(m));
+        if (i === t.centreIndex) {
+          b.classList.add('core');
+          b.disabled = true;
+          b.setAttribute('aria-label', 'The cell itself');
+        } else {
+          b.setAttribute('aria-label', 'Offset ' + (t.id === 'hex' ? m.dq + ',' + m.dr : m.dc + ',' + m.dr));
+        }
+        frag.append(b);
+      }
     }
     host.replaceChildren(frag);
   }
-  const mask = state.masks[kind];
-  const kids = host.children;
-  for (let i = 0; i < kids.length; i++) {
-    if (i === CENTER) continue;
+  const btns = host.querySelectorAll('button');
+  for (const b of btns) {
+    const i = Number(b.dataset.index);
+    if (i === t.centreIndex) continue;
     const on = !!mask[i];
-    kids[i].classList.toggle('on', on);
-    kids[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
   $(kind + 'MaskChip').textContent = maskCount(mask) + ' cells';
 }
@@ -1933,30 +2623,92 @@ function afterMaskChange(kind) {
   resizeRates(kind, false);
   renderMask(kind);
   renderRules(kind);
-  scheduleDraw();
+  noteChange(kind + ':mask', kind + ' neighbourhood');
 }
-function toggleMaskCell(kind, i) {
+function paintMaskCell(kind, i, value) {
+  const t = topo();
   const mask = state.masks[kind];
-  if (i === CENTER) return;
-  if (mask[i] && maskCount(mask) <= 1) return;   // never leave a mask empty
-  mask[i] = mask[i] ? 0 : 1;
-  afterMaskChange(kind);
+  if (i === t.centreIndex || mask[i] === value) return false;
+  if (!value && maskCount(mask) <= 1) return false;   // never leave a mask empty
+  mask[i] = value;
+  return true;
 }
-function setMask(kind, mode) {
+function applyPattern(kind, id) {
+  const t = topo();
+  const p = PATTERNS[id];
+  if (!p) return;
+  const body = $('panelScroll') || document.querySelector('.panel-body');
+  const keep = body ? body.scrollTop : 0;
   const mask = state.masks[kind];
-  if (mode === 'moore') {
-    mask.set(mooreMask());
-  } else if (mode === 'all') {
-    for (let i = 0; i < mask.length; i++) mask[i] = i === CENTER ? 0 : 1;
-  } else if (mode === 'random') {
-    let n = 0;
-    for (let i = 0; i < mask.length; i++) {
-      mask[i] = i !== CENTER && Math.random() < 0.35 ? 1 : 0;
-      n += mask[i];
-    }
-    if (!n) mask[CENTER - 1] = 1;
+  let n = 0;
+  for (let i = 0; i < mask.length; i++) {
+    if (i === t.centreIndex) { mask[i] = 0; continue; }
+    mask[i] = p.test(t.maskCells[i]) ? 1 : 0;
+    n += mask[i];
   }
+  if (!n) mask[t.centreIndex === 0 ? 1 : 0] = 1;      // patterns must leave something
   afterMaskChange(kind);
+  if (body) body.scrollTop = keep;
+}
+/** Drag across the grid to add or remove a run of neighbours. The first cell
+    decides whether the stroke is adding or removing, matching the canvas brush. */
+function setupMaskPainting(kind) {
+  const host = $(kind + 'Mask');
+  let painting = false, value = 1, touched = false;
+  const cellAtPoint = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    if (!el || !host.contains(el)) return -1;
+    const btn = el.closest('button');
+    return btn && !btn.disabled ? Number(btn.dataset.index) : -1;
+  };
+  const stroke = (i) => {
+    if (i < 0) return;
+    if (paintMaskCell(kind, i, value)) {
+      touched = true;
+      const b = host.querySelector('button[data-index="' + i + '"]');
+      b.classList.toggle('on', !!value);
+      b.setAttribute('aria-pressed', value ? 'true' : 'false');
+      $(kind + 'MaskChip').textContent = maskCount(state.masks[kind]) + ' cells';
+    }
+  };
+  host.addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn || btn.disabled) return;
+    e.preventDefault();
+    host.setPointerCapture(e.pointerId);
+    const i = Number(btn.dataset.index);
+    value = state.masks[kind][i] ? 0 : 1;
+    painting = true;
+    touched = false;
+    stroke(i);
+  });
+  host.addEventListener('pointermove', (e) => {
+    if (!painting) return;
+    e.preventDefault();
+    stroke(cellAtPoint(e.clientX, e.clientY));
+  });
+  const end = () => {
+    if (!painting) return;
+    painting = false;
+    if (touched) afterMaskChange(kind);
+  };
+  host.addEventListener('pointerup', end);
+  host.addEventListener('pointercancel', end);
+  host.addEventListener('lostpointercapture', end);
+}
+function renderPatternButtons(kind) {
+  const host = $(kind + 'Patterns');
+  const frag = document.createDocumentFragment();
+  for (const id of topo().patterns) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn';
+    b.textContent = PATTERNS[id].label;
+    b.addEventListener('pointerdown', (e) => e.preventDefault());
+    b.addEventListener('click', () => applyPattern(kind, id));
+    frag.append(b);
+  }
+  host.replaceChildren(frag);
 }
 
 /* ============================ presets ============================ */
@@ -1977,10 +2729,11 @@ const PRESETS = {
 function applyPreset(name) {
   const p = PRESETS[name];
   if (!p) return;
+  quietEdits = true;
   state.clampMin = 0; state.clampMax = 100;
   ui.clampMin.set(0); ui.clampMax.set(100);
 
-  for (const k of KINDS) state.masks[k].set(mooreMask());
+  for (const k of KINDS) state.masks[k].set(defaultMask(topo()));
   rebuildOffsets();
 
   for (const k of KINDS) {
@@ -1997,10 +2750,9 @@ function applyPreset(name) {
   }
   state.threshold = p.threshold || 0;
   ui.threshold.set(state.threshold);
-  if (!gpu.active) recount();
   syncClampChip();
-  updateStats();
-  scheduleDraw();
+  quietEdits = false;
+  noteChange('birth:preset', 'preset "' + name + '"');
 }
 
 /* ============================ number steppers ============================ */
@@ -2045,6 +2797,117 @@ function attachStepper(input) {
   wrap.append(spin);
 }
 
+/* ============================ brush shape ============================ */
+
+/** Which offset variant a cell uses — the JS twin of the shader's parityOf. */
+function parityOfCell(r, c) {
+  const pm = state.topo.parityMode;
+  return pm === 0 ? 0 : pm === 1 ? (r & 1) : ((r + c) & 1);
+}
+function insideConvex(poly, x, y) {
+  let sign = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    const cross = (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]);
+    if (Math.abs(cross) < 1e-9) continue;                 // on an edge counts as in
+    const s = cross > 0 ? 1 : -1;
+    if (sign === 0) sign = s;
+    else if (s !== sign) return false;
+  }
+  return true;
+}
+
+/* The brush footprint is the cell's own polygon scaled up by the brush size.
+   Squares give a square block exactly as before, hexagons give a hexagonal
+   patch, triangles give a triangular one — and any tiling added later gets a
+   matching brush for free. Offsets depend only on the parity variant, so they
+   are computed once per tiling/size/parity and reused. */
+let brushCache = { key: '', list: [] };
+function brushOffsets(parity) {
+  const t = topo(), n = state.brush;
+  const key = t.id + ':' + n;
+  if (brushCache.key !== key) brushCache = { key, list: [] };
+  if (brushCache.list[parity]) return brushCache.list[parity];
+
+  const c0 = 1000;
+  let r0 = 1000;
+  if (parityOfCell(r0, c0) !== parity) r0 += 1;
+  const ctr = t.centre(c0, r0);
+  const poly = t.brushPoly
+    ? t.brushPoly(c0, r0, n)
+    : t.corners(c0, r0).map(([x, y]) => [ctr.x + (x - ctr.x) * n, ctr.y + (y - ctr.y) * n]);
+  const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
+  const a = t.pick(Math.min(...xs), Math.min(...ys));
+  const b = t.pick(Math.max(...xs), Math.max(...ys));
+  const pad = t.visPad + 1;
+  const out = [];
+  for (let r = Math.min(a.r, b.r) - pad; r <= Math.max(a.r, b.r) + pad; r++) {
+    for (let c = Math.min(a.c, b.c) - pad; c <= Math.max(a.c, b.c) + pad; c++) {
+      const p = t.centre(c, r);
+      if (insideConvex(poly, p.x, p.y)) out.push([c - c0, r - r0]);
+    }
+  }
+  brushCache.list[parity] = out;
+  return out;
+}
+function brushCells(c, r) {
+  if (state.brush <= 1) return [[c, r]];
+  const out = [];
+  for (const [dc, dr] of brushOffsets(parityOfCell(r, c))) {
+    const cc = c + dc, rr = r + dr;
+    if (cc >= 0 && cc < state.cols && rr >= 0 && rr < state.rows) out.push([cc, rr]);
+  }
+  return out;
+}
+
+/** Outline of a set of cells, keeping only edges that aren't shared. Adjacent
+    cells traverse a common edge in opposite directions, so it cancels — what's
+    left is the outer perimeter, which is all the brush or a stamp needs to show. */
+function outlinePath(cells) {
+  const t = topo();
+  const edges = new Map();
+  const at = (p) => p[0].toFixed(5) + ',' + p[1].toFixed(5);
+  for (const [c, r] of cells) {
+    const pts = t.corners(c, r);
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const back = at(b) + '|' + at(a);
+      if (edges.has(back)) edges.delete(back);
+      else edges.set(at(a) + '|' + at(b), [a, b]);
+    }
+  }
+  const path = new Path2D();
+  for (const [, [a, b]] of edges) {
+    path.moveTo(a[0], a[1]);
+    path.lineTo(b[0], b[1]);
+  }
+  return path;
+}
+
+function drawOverlay() {
+  const ov = $('ov');
+  const octx = ov.getContext('2d');
+  if (!octx) return;
+  octx.setTransform(1, 0, 0, 1, 0, 0);
+  octx.clearRect(0, 0, ov.width, ov.height);
+  if (!hover || state.brush <= 1) return;
+
+  const box = worldBox(), v = state.view;
+  const scale = ov.width / (box.w / v.zoom);
+  octx.save();
+  octx.scale(scale, scale);
+  octx.translate(-v.x, -v.y);
+  const path = outlinePath(brushCells(hover.c, hover.r));
+  octx.lineCap = 'round';
+  octx.lineWidth = 3.5 / scale;
+  octx.strokeStyle = 'rgba(0,0,0,.7)';
+  octx.stroke(path);
+  octx.lineWidth = 1.6 / scale;
+  octx.strokeStyle = 'rgba(255,255,255,.95)';
+  octx.stroke(path);
+  octx.restore();
+}
+
 /* ============================ hover reticle ============================ */
 let hover = null;
 function activeCanvas() { return gpu.active ? gpuCanvas : canvas; }
@@ -2060,25 +2923,44 @@ function clearHover() {
   hover = null;
   $('reticle').hidden = true;
   $('coords').hidden = true;
+  drawOverlay();
 }
 function setHover(clientX, clientY) {
-  hover = cellAt(clientX, clientY);
+  const next = cellAt(clientX, clientY);
+  const moved = !hover || hover.c !== next.c || hover.r !== next.r;
+  hover = next;
   drawReticle();
+  if (moved) drawOverlay();
 }
 function drawReticle() {
   if (!hover) return;
   const ret = $('reticle'), lab = $('coords');
   const cr = activeCanvas().getBoundingClientRect();
   const fr = $('frame').getBoundingClientRect();
-  const v = state.view;
-  const sx = cr.width / (state.cols / v.zoom);
-  const sy = cr.height / (state.rows / v.zoom);
-  const left = (cr.left - fr.left) + (hover.c - v.x) * sx;
-  const top = (cr.top - fr.top) + (hover.r - v.y) * sy;
+  const v = state.view, t = topo(), box = worldBox();
+  const sx = cr.width / (box.w / v.zoom);
+  const sy = cr.height / (box.h / v.zoom);
+  const ox = cr.left - fr.left, oy = cr.top - fr.top;
+
+  // Outline the real cell shape rather than assuming a rectangle.
+  const pts = t.corners(hover.c, hover.r);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  const poly = pts.map(([x, y]) => {
+    const px = ox + (x - v.x) * sx, py = oy + (y - v.y) * sy;
+    if (px < minX) minX = px;
+    if (py < minY) minY = py;
+    if (px > maxX) maxX = px;
+    if (py > maxY) maxY = py;
+    return [px, py];
+  });
   ret.hidden = false;
-  ret.style.width = Math.max(2, sx) + 'px';
-  ret.style.height = Math.max(2, sy) + 'px';
-  ret.style.transform = 'translate(' + left + 'px,' + top + 'px)';
+  ret.style.width = Math.max(2, maxX - minX) + 'px';
+  ret.style.height = Math.max(2, maxY - minY) + 'px';
+  ret.style.transform = 'translate(' + minX + 'px,' + minY + 'px)';
+  ret.style.clipPath = t.id === 'square' ? '' :
+    'polygon(' + poly.map(([x, y]) =>
+      (((x - minX) / Math.max(1, maxX - minX)) * 100).toFixed(2) + '% ' +
+      (((y - minY) / Math.max(1, maxY - minY)) * 100).toFixed(2) + '%').join(',') + ')';
 
   const info = cellInfo(hover.c, hover.r);
   let x = hover.c, y = hover.r;
@@ -2089,14 +2971,14 @@ function drawReticle() {
   }
   const show = (n) => (state.centreOrigin && n > 0 ? '+' + n : String(n));
   let text = show(x) + ', ' + show(y) + ' <i>' + (info.alive ? 'live' : 'dead') + '</i>';
-  if (state.threshold > 0) text += ' <b>' + info.acc + '/' + state.threshold + '</b>';
+  if (rules.threshold > 0) text += ' <b>' + info.acc + '/' + rules.threshold + '</b>';
   lab.innerHTML = text;
   lab.hidden = false;
 
-  let lx = left + sx + 12, ly = top - lab.offsetHeight - 8;
-  if (lx + lab.offsetWidth > fr.width - 4) lx = left - lab.offsetWidth - 12;
+  let lx = maxX + 12, ly = minY - lab.offsetHeight - 8;
+  if (lx + lab.offsetWidth > fr.width - 4) lx = minX - lab.offsetWidth - 12;
   if (lx < 4) lx = 4;
-  if (ly < 4) ly = top + sy + 8;
+  if (ly < 4) ly = maxY + 8;
   if (ly + lab.offsetHeight > fr.height - 4) ly = Math.max(4, fr.height - lab.offsetHeight - 4);
   lab.style.transform = 'translate(' + lx + 'px,' + ly + 'px)';
 }
@@ -2110,12 +2992,18 @@ function normPoint(clientX, clientY) {
   const rect = activeCanvas().getBoundingClientRect();
   return { u: (clientX - rect.left) / rect.width, v: (clientY - rect.top) / rect.height, rect };
 }
-function cellAt(clientX, clientY) {
+/** Screen point -> world point, in the units the topology works in. */
+function worldAt(clientX, clientY) {
   const { u, v } = normPoint(clientX, clientY);
-  const view = state.view;
+  const box = worldBox(), view = state.view;
+  return { x: view.x + u * (box.w / view.zoom), y: view.y + v * (box.h / view.zoom) };
+}
+function cellAt(clientX, clientY) {
+  const w = worldAt(clientX, clientY);
+  const cell = topo().pick(w.x, w.y, state.cols, state.rows);
   return {
-    c: clampInt(Math.floor(view.x + u * (state.cols / view.zoom)), 0, state.cols - 1),
-    r: clampInt(Math.floor(view.y + v * (state.rows / view.zoom)), 0, state.rows - 1)
+    c: clampInt(cell.c, 0, state.cols - 1),
+    r: clampInt(cell.r, 0, state.rows - 1)
   };
 }
 function noteRect(c0, r0, c1, r1) {
@@ -2126,18 +3014,18 @@ function noteRect(c0, r0, c1, r1) {
   if (r1 > paintRect.r1) paintRect.r1 = r1;
 }
 function paintBlock(c, r, value) {
-  const rad = (state.brush - 1) >> 1;
+  const cells = brushCells(c, r);
+  if (!cells.length) return 0;
   const cols = state.cols, g = state.grid;
-  const r0 = Math.max(0, r - rad), r1 = Math.min(state.rows - 1, r + rad);
-  const c0 = Math.max(0, c - rad), c1 = Math.min(cols - 1, c + rad);
-  if (r1 < r0 || c1 < c0) return 0;
-  let delta = 0;
-  for (let rr = r0; rr <= r1; rr++) {
-    const base = rr * cols;
-    for (let cc = c0; cc <= c1; cc++) {
-      const i = base + cc;
-      if (g[i] !== value) { g[i] = value; delta += value ? 1 : -1; }
-    }
+  let delta = 0, c0 = Infinity, r0 = Infinity, c1 = -Infinity, r1 = -Infinity;
+  for (let k = 0; k < cells.length; k++) {
+    const cc = cells[k][0], rr = cells[k][1];
+    const i = rr * cols + cc;
+    if (g[i] !== value) { g[i] = value; delta += value ? 1 : -1; }
+    if (cc < c0) c0 = cc;
+    if (cc > c1) c1 = cc;
+    if (rr < r0) r0 = rr;
+    if (rr > r1) r1 = rr;
   }
   noteRect(c0, r0, c1, r1);
   return delta;
@@ -2166,11 +3054,12 @@ function startPinch() {
   painting = false; lastCell = null;
   const a = normPoint(pts[0].x, pts[0].y), b = normPoint(pts[1].x, pts[1].y);
   const rect = a.rect;
+  const box = worldBox();
   pinch = {
     dist: Math.hypot((b.u - a.u) * rect.width, (b.v - a.v) * rect.height) || 1,
     zoom: state.view.zoom,
-    wx: state.view.x + ((a.u + b.u) / 2) * (state.cols / state.view.zoom),
-    wy: state.view.y + ((a.v + b.v) / 2) * (state.rows / state.view.zoom)
+    wx: state.view.x + ((a.u + b.u) / 2) * (box.w / state.view.zoom),
+    wy: state.view.y + ((a.v + b.v) / 2) * (box.h / state.view.zoom)
   };
 }
 function updatePinch() {
@@ -2180,10 +3069,10 @@ function updatePinch() {
   const rect = a.rect;
   const dist = Math.hypot((b.u - a.u) * rect.width, (b.v - a.v) * rect.height) || 1;
   const mu = (a.u + b.u) / 2, mv = (a.v + b.v) / 2;
-  const view = state.view;
+  const view = state.view, box = worldBox();
   view.zoom = clamp(pinch.zoom * (dist / pinch.dist), ZOOM_MIN, ZOOM_MAX);
-  view.x = pinch.wx - mu * (state.cols / view.zoom);
-  view.y = pinch.wy - mv * (state.rows / view.zoom);
+  view.x = pinch.wx - mu * (box.w / view.zoom);
+  view.y = pinch.wy - mv * (box.h / view.zoom);
   clampView();
   updateStats();
   scheduleDraw();
@@ -2233,9 +3122,9 @@ function setupPointer(el) {
     if (panning && lastPan) {
       e.preventDefault();
       const rect = el.getBoundingClientRect();
-      const view = state.view;
-      view.x -= ((e.clientX - lastPan.x) / rect.width) * (state.cols / view.zoom);
-      view.y -= ((e.clientY - lastPan.y) / rect.height) * (state.rows / view.zoom);
+      const view = state.view, box = worldBox();
+      view.x -= ((e.clientX - lastPan.x) / rect.width) * (box.w / view.zoom);
+      view.y -= ((e.clientY - lastPan.y) / rect.height) * (box.h / view.zoom);
       lastPan = { x: e.clientX, y: e.clientY };
       clampView();
       scheduleDraw();
@@ -2272,6 +3161,19 @@ function setupPointer(el) {
 }
 
 /* ============================ UI wiring ============================ */
+
+/** Mirror a checkbox that appears on more than one tab. Every copy carries
+    data-sync="<name>"; ticking any one updates the rest and fires once. */
+function syncedCheckbox(name, onChange) {
+  const boxes = [...document.querySelectorAll('[data-sync="' + name + '"]')];
+  for (const box of boxes) {
+    box.addEventListener('change', () => {
+      for (const other of boxes) if (other !== box) other.checked = box.checked;
+      onChange(box.checked);
+    });
+  }
+  return { set(v) { for (const box of boxes) box.checked = v; } };
+}
 const ui = {};
 
 function syncClampChip() {
@@ -2296,7 +3198,7 @@ function applyClamp() {
   ui.deathMaster.refresh();
   ui.decayMaster.refresh();
   syncClampChip();
-  scheduleDraw();
+  noteChange('clamp:range', 'rate clamp');
 }
 function applyMaster(kind, value) {
   const r = state.rates[kind];
@@ -2304,12 +3206,12 @@ function applyMaster(kind, value) {
   for (let i = 0; i < r.length; i++) r[i] = v;
   syncProbs(kind);
   renderRules(kind);
-  if (kind !== 'decay') scheduleDraw();
+  noteChange(kind + ':master', 'all ' + kind + ' rates');
 }
 function setAllDecayDir(down) {
   state.decayDir.fill(down ? -1 : 1);
   renderRules('decay');
-  markRulesChanged();
+  noteChange('decay:alldir', 'all decay directions');
 }
 function randomizeRates(kinds) {
   for (const k of kinds) {
@@ -2318,8 +3220,52 @@ function randomizeRates(kinds) {
     for (let i = 0; i < r.length; i++) r[i] = clampRate(state.clampMin + Math.round(Math.random() * span));
     syncProbs(k);
     renderRules(k);
+    noteChange(k + ':master', 'randomised ' + k + ' rates');
   }
+}
+function applyTheme(index) {
+  const t = THEMES[index];
+  if (!t) return;
+  for (const key of ['liveLo', 'liveHi', 'deadLo', 'deadHi']) {
+    state.colours[key] = t[key];
+    $(key).value = t[key];
+    $(key + 'T').textContent = t[key];
+  }
+  buildLUTs();
+  syncGradients();
+  syncThemeSelection();
   scheduleDraw();
+}
+function syncThemeSelection() {
+  const c = state.colours;
+  for (const btn of document.querySelectorAll('.theme')) {
+    const t = THEMES[Number(btn.dataset.index)];
+    const match = t.liveLo === c.liveLo && t.liveHi === c.liveHi
+               && t.deadLo === c.deadLo && t.deadHi === c.deadHi;
+    btn.setAttribute('aria-pressed', String(match));
+  }
+}
+function renderThemes() {
+  const host = $('themeList');
+  const frag = document.createDocumentFragment();
+  THEMES.forEach((t, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'theme';
+    b.dataset.index = String(i);
+    b.setAttribute('aria-pressed', 'false');
+    const live = document.createElement('i');
+    live.style.background = 'linear-gradient(90deg,' + t.liveLo + ',' + t.liveHi + ')';
+    const dead = document.createElement('i');
+    dead.style.background = 'linear-gradient(90deg,' + t.deadLo + ',' + t.deadHi + ')';
+    const name = document.createElement('span');
+    name.textContent = t.name;
+    b.append(live, dead, name);
+    b.addEventListener('click', () => applyTheme(i));
+    frag.append(b);
+  });
+  host.replaceChildren(frag);
+  syncThemeSelection();
 }
 function setColourMode(mode) {
   state.colourMode = mode;
@@ -2328,12 +3274,17 @@ function setColourMode(mode) {
   }
   $('colourHelp').textContent = mode === 'rates'
     ? 'Live cells shade by their death chance, dead cells by their birth chance.'
-    : 'Every cell shades by how close its counter is to the threshold. Needs a threshold above 0.';
+    : mode === 'decay'
+      ? 'Every cell shades by how close its counter is to the threshold. Needs a threshold above 0.'
+      : 'Hue comes from the transition odds, brightness from depletion — so you can read both at once. Needs a threshold above 0 for the brightness half to do anything.';
+  $('influenceField').classList.toggle('hidden', mode !== 'combined');
   scheduleDraw();
 }
 function syncGradients() {
-  $('liveGrad').style.background = 'linear-gradient(90deg,' + state.colours.liveLo + ',' + state.colours.liveHi + ')';
-  $('deadGrad').style.background = 'linear-gradient(90deg,' + state.colours.deadLo + ',' + state.colours.deadHi + ')';
+  for (const which of ['live', 'dead']) {
+    const [lo, hi] = gradientEnds(which);
+    $(which + 'Grad').style.background = 'linear-gradient(90deg,' + rgbToCss(lo) + ',' + rgbToCss(hi) + ')';
+  }
 }
 
 function setupUI() {
@@ -2376,7 +3327,11 @@ function setupUI() {
   bindPair('fpsR', 'fpsN', (v) => { state.fps = v; });
   bindPair('skipR', 'skipN', (v) => { state.frameSkip = v; });
   bindPair('densR', 'densN', (v) => { state.density = v; });
-  bindPair('brushR', 'brushN', (v) => { state.brush = v % 2 ? v : v + 1; });
+  bindPair('brushR', 'brushN', (v) => {
+    state.brush = v % 2 ? v : v + 1;
+    brushCache = { key: '', list: [] };
+    drawOverlay();
+  });
   $('lineMode').addEventListener('change', (e) => { state.lineMode = e.target.checked; });
 
   /* view tab */
@@ -2394,7 +3349,15 @@ function setupUI() {
     else setGrid(state.cols, state.rows);
   });
   $('centreOrigin').addEventListener('change', (e) => { state.centreOrigin = e.target.checked; drawReticle(); });
-  $('wrapEdges').addEventListener('change', (e) => { state.wrap = e.target.checked; scheduleDraw(); });
+  $('wrapEdges').addEventListener('change', (e) => {
+    state.wrap = e.target.checked;
+    noteChange('wrap:edges', 'edge wrapping');
+    syncTopologyUI();
+    if (wrapConstrains()) setGrid(state.cols, state.rows);
+  });
+  for (const b of document.querySelectorAll('[data-topo]')) {
+    b.addEventListener('click', () => setTopology(b.dataset.topo));
+  }
   $('borders').addEventListener('change', (e) => { state.borders = e.target.checked; scheduleDraw(); });
 
   /* engine */
@@ -2412,9 +3375,27 @@ function setupUI() {
       $(textId).textContent = state.colours[key];
       buildLUTs();
       syncGradients();
+      syncThemeSelection();
       scheduleDraw();
     });
   }
+  for (const [id, key] of [['invertLive', 'invertLive'], ['invertDead', 'invertDead']]) {
+    $(id).addEventListener('change', (e) => {
+      state[key] = e.target.checked;
+      buildLUTs();
+      syncGradients();
+      scheduleDraw();
+    });
+  }
+  bindPair('inflR', 'inflN', (v) => { state.decayInfluence = v; buildLUTs(); scheduleDraw(); });
+
+  /* staging */
+  syncedCheckbox('liveApply', (on) => {
+    state.liveApply = on;
+    if (on && pending.size) commitRules();
+  });
+  $('applyBtn').addEventListener('click', commitRules);
+  $('revertBtn').addEventListener('click', revertRules);
 
   /* clamp + masters */
   ui.clampMin = bindPair('clampMinR', 'clampMinN', (v) => { state.clampMin = v; applyClamp(); }, () => ({ min: 0, max: state.clampMax }));
@@ -2434,12 +3415,12 @@ function setupUI() {
   ui.threshold = bindPair('thrR', 'thrN', (v) => {
     state.threshold = v;
     $('thrChip').textContent = v === 0 ? 'off' : 'at ' + v;
-    if (!gpu.active) recount();
-    refreshDeterminism();
-    updateStats();
-    scheduleDraw();
+    noteChange('threshold:value', 'depletion threshold');
   });
-  $('resetBirth').addEventListener('change', (e) => { state.resetOnBirth = e.target.checked; });
+  $('resetBirth').addEventListener('change', (e) => {
+    state.resetOnBirth = e.target.checked;
+    noteChange('resetOnBirth:flag', 'clear counter on birth');
+  });
   $('clearAccum').addEventListener('click', () => {
     if (gpu.active) gpuSyncDown();
     state.accum.fill(0);
@@ -2454,17 +3435,8 @@ function setupUI() {
     const list = ruleListFor(k);
     list.addEventListener('input', onRuleInput);
     list.addEventListener('change', onRuleInput);
-    $(k + 'Mask').addEventListener('click', (e) => {
-      const btn = e.target.closest('button');
-      if (!btn || btn.disabled) return;
-      toggleMaskCell(k, Number(btn.dataset.index));
-    });
-  }
-  for (const btn of document.querySelectorAll('[data-mask]')) {
-    btn.addEventListener('click', () => {
-      const [kind, mode] = btn.dataset.mask.split(':');
-      setMask(kind, mode);
-    });
+    setupMaskPainting(k);
+    renderPatternButtons(k);
   }
   for (const btn of document.querySelectorAll('[data-preset]')) {
     btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
@@ -2472,6 +3444,13 @@ function setupUI() {
 
   /* keyboard */
   window.addEventListener('keydown', (e) => {
+    // These work while a control has focus, so you can tweak then commit.
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'Enter' || e.key === 'Backspace')) {
+      if (!pending.size) return;
+      e.preventDefault();
+      if (e.key === 'Enter') commitRules(); else revertRules();
+      return;
+    }
     const tag = document.activeElement && document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     switch (e.key) {
@@ -2486,23 +3465,73 @@ function setupUI() {
   });
 }
 
+/* ============================ panel resize ============================ */
+function setupPanelResize() {
+  const panel = $('panel'), grip = $('panelGrip');
+  const lo = () => 280;
+  const hi = () => Math.min(760, window.innerWidth * 0.92);
+  const apply = (px) => { panel.style.width = clamp(px, lo(), hi()) + 'px'; resizeCanvas(); };
+  let active = null, startX = 0, startW = 0;
+
+  grip.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    active = e.pointerId;
+    grip.setPointerCapture(active);
+    startX = e.clientX;
+    startW = panel.getBoundingClientRect().width;
+    grip.classList.add('dragging');
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if (active === null) return;
+    e.preventDefault();
+    apply(startW + (e.clientX - startX));
+  });
+  const end = () => {
+    if (active === null) return;
+    active = null;
+    grip.classList.remove('dragging');
+    resizeCanvas();
+  };
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+  grip.addEventListener('lostpointercapture', end);
+  grip.addEventListener('dblclick', () => { panel.style.width = ''; resizeCanvas(); });
+  grip.tabIndex = 0;
+  grip.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 40 : 12;
+    if (e.key === 'ArrowLeft') { e.preventDefault(); apply(panel.getBoundingClientRect().width - step); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); apply(panel.getBoundingClientRect().width + step); }
+    else if (e.key === 'Home') { e.preventDefault(); panel.style.width = ''; resizeCanvas(); }
+  });
+}
+
 /* ============================ boot ============================ */
 function init() {
+  for (const k of KINDS) {
+    state.masks[k] = defaultMask(state.topo);
+    rules.masks[k] = defaultMask(state.topo);
+  }
   const { cols, rows } = gridDims(state.cellSize);
   allocate(cols, rows);
   for (const k of KINDS) resizeRates(k, true);
   state.decayDir = new Int8Array(state.offsets.decay.n + 1).fill(1);
 
+  quietEdits = true;
   setupUI();
+  setupPanelResize();
   setupPointer(canvas);
   setupPointer(gpuCanvas);
   buildLUTs();
   syncGradients();
+  renderThemes();
   syncClampChip();
   syncGridControls();
 
-  for (const k of KINDS) { renderMask(k); renderRules(k); }
+  for (const k of KINDS) { renderPatternButtons(k); renderMask(k); renderRules(k); }
   setColourMode('rates');
+  syncTopologyUI();
+  quietEdits = false;
+  commitRules();                 // seed the committed set from the initial draft
   fillRandom();
   updateStats();
   refreshDeterminism();
