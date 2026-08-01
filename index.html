@@ -113,7 +113,8 @@ button{touch-action:manipulation}
 }
 
 /* ---------- fields ---------- */
-.field{display:grid;grid-template-columns:minmax(84px,.9fr) minmax(0,1.5fr) 50px;align-items:center;gap:8px;min-height:32px}
+.field{display:grid;grid-template-columns:minmax(80px,.85fr) minmax(0,1.4fr) 64px;align-items:center;gap:8px;min-height:32px}
+.field.off>label{color:var(--quiet)}
 .field>label{font-size:.78rem;font-weight:650;color:#d3dbe7;line-height:1.15}
 .field.check{grid-template-columns:1fr auto}
 input[type="range"]{width:100%;min-width:0;touch-action:pan-y;accent-color:var(--death);height:22px}
@@ -126,9 +127,23 @@ input[type="number"]{
 input[type="number"]::-webkit-outer-spin-button,input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 input[type="number"]{-moz-appearance:textfield}
 input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--death);margin:0}
+input:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---------- number steppers ---------- */
+.stepper{display:grid;grid-template-columns:minmax(0,1fr) 17px;gap:3px;align-items:stretch;min-width:0}
+.spin{display:grid;grid-template-rows:1fr 1fr;gap:2px}
+.spin button{
+  border:1px solid var(--line-hi);background:var(--btn);border-radius:4px;padding:0;
+  min-height:0;font-size:.42rem;line-height:1;color:var(--muted);cursor:pointer;
+  display:grid;place-items:center;user-select:none;
+}
+.spin button:hover{background:var(--btn-hi);color:var(--text)}
+.spin button:active{background:var(--death);color:#160e00;border-color:var(--death)}
+.stepper:has(input:disabled) .spin button{opacity:.4;pointer-events:none}
 
 /* ---------- segmented ---------- */
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--sunk);border:1px solid var(--line);border-radius:10px}
+.seg.three{grid-template-columns:repeat(3,1fr)}
 .seg button{
   border:1px solid transparent;background:transparent;color:var(--muted);border-radius:7px;
   min-height:32px;font-size:.78rem;font-weight:800;cursor:pointer;
@@ -139,8 +154,8 @@ input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--death
 
 /* ---------- rule rows ---------- */
 .rule-list{display:grid;gap:4px;max-height:44vh;overflow:auto;overscroll-behavior:contain;padding-right:2px}
-.rule-row{display:grid;grid-template-columns:56px minmax(0,1fr) 46px;align-items:center;gap:7px;min-height:28px}
-.rule-row.decay{grid-template-columns:56px 30px minmax(0,1fr) 46px}
+.rule-row{display:grid;grid-template-columns:54px minmax(0,1fr) 60px;align-items:center;gap:7px;min-height:30px}
+.rule-row.decay{grid-template-columns:54px 28px minmax(0,1fr) 60px}
 .rule-row>label{font-family:var(--mono);font-size:.72rem;font-weight:600;color:#c3cddb;white-space:nowrap}
 .rule-row .dir{display:grid;place-items:center;position:relative}
 .rule-row .dir input{inline-size:16px;block-size:16px;accent-color:var(--decay)}
@@ -173,10 +188,35 @@ input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--death
   position:relative;min-width:0;min-height:0;overflow:hidden;border-radius:12px;
   border:1px solid var(--line);background:#05070a;
 }
-#cv{
+#cv,#gv{
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   image-rendering:pixelated;cursor:crosshair;touch-action:none;user-select:none;
 }
+.canvas-off{visibility:hidden;pointer-events:none}
+.hidden{display:none!important}
+.reticle{
+  position:absolute;top:0;left:0;z-index:3;pointer-events:none;
+  border:1px solid rgba(255,255,255,.92);box-shadow:0 0 0 1px rgba(0,0,0,.8);
+}
+.coords{
+  position:absolute;top:0;left:0;z-index:4;pointer-events:none;
+  font-family:var(--mono);font-size:.68rem;line-height:1.3;white-space:nowrap;
+  background:rgba(6,9,13,.92);border:1px solid var(--line-hi);border-radius:7px;
+  padding:3px 7px;color:#e7eefa;
+}
+.coords i{font-style:normal;color:var(--quiet)}
+.coords b{color:var(--decay);font-weight:700}
+.pills{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.pill{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  font-family:var(--mono);font-size:.63rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  padding:4px 9px;border-radius:999px;border:1px solid var(--line-hi);background:var(--sunk);color:var(--quiet);
+}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.pill.is-det{color:#5fd39a}
+.pill.is-sto{color:var(--death)}
+.pill.is-gpu{color:var(--birth)}
+.pill.is-warn{color:var(--decay)}
 .stagebar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .stats{display:flex;gap:14px;font-family:var(--mono);font-size:.74rem}
 .stat{display:grid;gap:1px}
@@ -205,7 +245,10 @@ input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--death
 @media (max-width:560px){
   .topbar{flex-wrap:wrap;gap:8px}
   .transport{width:100%;display:grid;grid-template-columns:repeat(4,1fr)}
-  .field{grid-template-columns:minmax(72px,1fr) minmax(0,1.2fr) 44px}
+  .field{grid-template-columns:minmax(70px,1fr) minmax(0,1.1fr) 68px;min-height:40px}
+  .rule-row,.rule-row.decay{min-height:38px}
+  .stepper{grid-template-columns:minmax(0,1fr) 22px}
+  .spin button{font-size:.5rem}
   .swatches{grid-template-columns:1fr}
   .stats{gap:10px}
 }
@@ -283,6 +326,17 @@ input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--death
               <input id="brushN" type="number" min="1" max="51" step="2" value="1" aria-label="Brush block size">
             </div>
             <p class="help">The first cell you touch decides whether the whole stroke writes live or dead.</p>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Engine <span class="chip" id="engineChip">CPU</span></h2>
+            <div class="seg three" role="tablist" aria-label="Compute backend">
+              <button role="tab" type="button" data-engine="auto" aria-selected="true">Auto</button>
+              <button role="tab" type="button" data-engine="cpu" aria-selected="false">CPU</button>
+              <button role="tab" type="button" data-engine="gpu" aria-selected="false">GPU</button>
+            </div>
+            <p class="help" id="engineHelp">Looking for WebGPU…</p>
+            <button class="btn full hidden" id="gpuRetry" type="button">Retry GPU</button>
           </div>
 
           <div class="card">
@@ -428,14 +482,30 @@ input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--death
         <section class="tab-panel" id="tab-view" role="tabpanel">
           <div class="card">
             <h2 class="card-title">Grid <span class="chip" id="gridChip">70 × 50</span></h2>
-            <div class="field">
+            <div class="field check">
+              <label for="linkGrid">Size follows cell size</label>
+              <input id="linkGrid" type="checkbox" checked>
+            </div>
+            <div class="field" id="cellField">
               <label for="cellR">Cell size</label>
               <input id="cellR" type="range" min="1" max="20" step="1" value="10">
               <input id="cellN" type="number" min="1" max="20" step="1" value="10" aria-label="Cell size">
             </div>
+            <div class="field off" id="colsField">
+              <label for="colsR">Columns</label>
+              <input id="colsR" type="range" min="4" max="700" step="1" value="70" disabled>
+              <input id="colsN" type="number" min="4" max="700" step="1" value="70" aria-label="Columns" disabled>
+            </div>
+            <div class="field off" id="rowsField">
+              <label for="rowsR">Rows</label>
+              <input id="rowsR" type="range" min="4" max="500" step="1" value="50" disabled>
+              <input id="rowsN" type="number" min="4" max="500" step="1" value="50" aria-label="Rows" disabled>
+            </div>
+            <div class="field check"><label for="oddDims">Odd size, one true centre cell</label><input id="oddDims" type="checkbox"></div>
             <div class="field check"><label for="wrapEdges">Wrap edges</label><input id="wrapEdges" type="checkbox" checked></div>
             <div class="field check"><label for="borders">Cell borders</label><input id="borders" type="checkbox" checked></div>
-            <p class="help">Resizing the grid resamples what is already drawn.</p>
+            <div class="field check"><label for="centreOrigin">Read coordinates from centre</label><input id="centreOrigin" type="checkbox"></div>
+            <p class="help">Untick the link to set columns and rows yourself. Odd size trims a column and a row so the field has one exact middle cell. Resizing resamples what is already drawn.</p>
           </div>
 
           <div class="card">
@@ -473,6 +543,9 @@ input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--death
       <button class="btn icon-btn fab" id="panelOpen" type="button" title="Show controls" aria-label="Show controls">☰</button>
       <div class="canvas-frame" id="frame">
         <canvas id="cv" aria-label="Cellular automaton field"></canvas>
+        <canvas id="gv" class="canvas-off" aria-hidden="true"></canvas>
+        <div class="reticle" id="reticle" hidden></div>
+        <div class="coords" id="coords" hidden></div>
       </div>
       <div class="stagebar">
         <div class="stats" aria-live="off">
@@ -480,6 +553,10 @@ input[type="checkbox"]{inline-size:18px;block-size:18px;accent-color:var(--death
           <div class="stat"><b>Live</b><span id="liveStat">0</span></div>
           <div class="stat decay off" id="spentStat"><b>Spent</b><span id="spentVal">—</span></div>
           <div class="stat"><b>Grid</b><span id="sizeStat">70×50</span></div>
+        </div>
+        <div class="pills">
+          <span class="pill is-det" id="detPill" title="">Deterministic</span>
+          <span class="pill" id="enginePill" title="">CPU</span>
         </div>
         <div class="viewtools">
           <button class="btn icon-btn" id="zoomOut" type="button" aria-label="Zoom out">−</button>
@@ -503,6 +580,7 @@ const CENTER = MASK_C * MASK_N + MASK_C;
 const BASE_W = 700, BASE_H = 500; // grid budget in pixels-at-cell-size
 const ACC_MAX = 100;              // counter ceiling, matches threshold range
 const ZOOM_MIN = 1, ZOOM_MAX = 64;
+const MIN_DIM = 4, MAX_COLS = BASE_W, MAX_ROWS = BASE_H;
 const KINDS = ['birth', 'death', 'decay'];
 
 /* ============================ small helpers ============================ */
@@ -538,11 +616,15 @@ const state = {
   skipped: 0,
   density: 30,
   cellSize: 10,
+  linkGrid: true,
+  oddDims: false,
+  centreOrigin: false,
   brush: 1,
   lineMode: false,
   wrap: true,
   borders: true,
   colourMode: 'rates',
+  backend: 'auto',
 
   cols: 0, rows: 0,
   grid: null, next: null, accum: null,
@@ -633,6 +715,7 @@ let cellImage = null, cellPix = null;
 
 const canvas = $('cv');
 const ctx = canvas.getContext('2d', { alpha: false });
+const gpuCanvas = $('gv');
 
 function allocate(cols, rows) {
   state.cols = cols;
@@ -648,7 +731,19 @@ function allocate(cols, rows) {
   rebuildOffsets();
 }
 function gridDims(cellSize) {
-  return { cols: Math.max(4, Math.floor(BASE_W / cellSize)), rows: Math.max(4, Math.floor(BASE_H / cellSize)) };
+  return normaliseDims(Math.floor(BASE_W / cellSize), Math.floor(BASE_H / cellSize));
+}
+function normaliseDims(cols, rows) {
+  let c = clampInt(cols, MIN_DIM, MAX_COLS);
+  let r = clampInt(rows, MIN_DIM, MAX_ROWS);
+  if (state.oddDims) {
+    if (c % 2 === 0) c--;
+    if (r % 2 === 0) r--;
+  }
+  return { cols: c, rows: r };
+}
+function centreCell() {
+  return { c: (state.cols - 1) >> 1, r: (state.rows - 1) >> 1 };
 }
 function resample(src, oldRows, oldCols, rows, cols) {
   const out = new Uint8Array(rows * cols);
@@ -661,21 +756,40 @@ function resample(src, oldRows, oldCols, rows, cols) {
   }
   return out;
 }
-function setCellSize(px) {
-  const size = clampInt(px, 1, 20);
-  const { cols, rows } = gridDims(size);
-  if (size === state.cellSize && cols === state.cols) return;
+let dimSync = false;
+function setGrid(cols, rows) {
+  const d = normaliseDims(cols, rows);
+  if (d.cols === state.cols && d.rows === state.rows) { reflectDims(d); return; }
+  // The GPU holds the authoritative state, so hand its current buffer to the
+  // resample pass. Reading it back first would rewind to whenever the last
+  // snapshot happened to land.
+  const carry = gpu.active ? { buf: stateBuf(), cols: state.cols, rows: state.rows } : null;
   const oldGrid = state.grid, oldAcc = state.accum, oR = state.rows, oC = state.cols;
-  state.cellSize = size;
-  allocate(cols, rows);
+  allocate(d.cols, d.rows);
   if (oldGrid) {
-    state.grid = resample(oldGrid, oR, oC, rows, cols);
-    state.accum = resample(oldAcc, oR, oC, rows, cols);
+    state.grid = resample(oldGrid, oR, oC, d.rows, d.cols);
+    state.accum = resample(oldAcc, oR, oC, d.rows, d.cols);
   }
   recount();
   clampView();
+  reflectDims(d);
+  if (carry) gpuAllocate(carry);
   resizeCanvas();
   updateStats();
+}
+function reflectDims(d) {
+  if (!ui.cols) return;
+  dimSync = true;
+  ui.cols.set(d.cols);
+  ui.rows.set(d.rows);
+  dimSync = false;
+}
+function setCellSize(px) {
+  state.cellSize = clampInt(px, 1, 20);
+  if (state.linkGrid) {
+    const d = gridDims(state.cellSize);
+    setGrid(d.cols, d.rows);
+  }
 }
 function recount() {
   let live = 0, spent = 0;
@@ -700,6 +814,7 @@ function fillRandom() {
   state.spent = 0;
   state.gen = 0;
   state.skipped = 0;
+  if (gpu.active) gpuPush();
   updateStats();
   scheduleDraw();
 }
@@ -708,6 +823,7 @@ function clearGrid() {
   state.next.fill(0);
   state.accum.fill(0);
   state.live = 0; state.spent = 0; state.gen = 0; state.skipped = 0;
+  if (gpu.active) gpuPush();
   updateStats();
   scheduleDraw();
 }
@@ -744,6 +860,7 @@ function syncProbs(kind) {
   const p = new Float32Array(r.length);
   for (let i = 0; i < r.length; i++) p[i] = r[i] / 100;
   state.probs[kind] = p;
+  markRulesChanged();
 }
 
 /* ============================ simulation ============================ */
@@ -817,25 +934,30 @@ function setRunning(run) {
     rafId = null;
   }
 }
+function advance(n) {
+  if (gpu.active) gpuAdvance(n);
+  else for (let i = 0; i < n; i++) step();
+}
 function loop(now) {
   if (!state.running) { rafId = null; return; }
   bank += Math.min(250, now - lastTime);
   lastTime = now;
   const frame = 1000 / state.fps;
-  let painted = false, guard = 0;
+  let painted = false, guard = 0, steps = 0;
   while (bank >= frame && guard < 8) {
-    step();
     bank -= frame;
     guard++;
+    steps++;
     if (state.skipped >= state.frameSkip) { painted = true; state.skipped = 0; }
     else state.skipped++;
   }
+  if (steps && !gpu.hold) advance(steps);
   if (painted) { updateStats(); draw(); }
   rafId = requestAnimationFrame(loop);
 }
 function singleStep() {
   setRunning(false);
-  step();
+  advance(1);
   updateStats();
   draw();
 }
@@ -892,6 +1014,11 @@ function paintCells(c0, r0, c1, r1) {
 }
 
 function draw() {
+  if (gpu.active) drawGPU(); else drawCPU();
+  drawReticle();
+}
+
+function drawCPU() {
   const cw = canvas.width, ch = canvas.height;
   if (!cw || !ch) return;
   const { zoom, x, y } = state.view;
@@ -947,12 +1074,669 @@ function resizeCanvas() {
   w = Math.max(60, Math.floor(w));
   h = Math.max(40, Math.floor(h));
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.style.width = w + 'px';
-  canvas.style.height = h + 'px';
-  canvas.width = Math.round(w * dpr);
-  canvas.height = Math.round(h * dpr);
+  for (const el of [canvas, gpuCanvas]) {
+    el.style.width = w + 'px';
+    el.style.height = h + 'px';
+    el.width = Math.round(w * dpr);
+    el.height = Math.round(h * dpr);
+  }
   ctx.imageSmoothingEnabled = false;
   draw();
+}
+
+/* ============================ WebGPU backend ============================ */
+/* One u32 per cell: bit 0 = alive, bits 8-15 = depletion counter.
+   Two storage buffers ping-pong; a shade pass turns state into packed colour;
+   a fullscreen fragment pass samples that. The CPU path stays authoritative
+   for editing, so anything that fails here just falls back to it. */
+
+const P_STRUCT = `
+struct Params {
+  liveLo : vec4<f32>,
+  liveHi : vec4<f32>,
+  deadLo : vec4<f32>,
+  deadHi : vec4<f32>,
+  view : vec4<f32>,
+  screen : vec4<f32>,
+  dims : vec4<u32>,
+  flags : vec4<u32>,
+  offA : vec4<u32>,
+  offB : vec4<u32>,
+  offC : vec4<u32>,
+  vis : vec4<u32>,
+};
+`;
+const P_COUNT = `
+fn countAt(r : i32, c : i32, base : u32, n : u32) -> u32 {
+  let rows = i32(P.dims.y);
+  let wide = i32(P.dims.x);
+  var k : u32 = 0u;
+  for (var i : u32 = 0u; i < n; i = i + 1u) {
+    var rr = r + offs[base + i * 2u];
+    var cc = c + offs[base + i * 2u + 1u];
+    if (P.dims.z == 1u) {
+      if (rr < 0) { rr = rr + rows; } else if (rr >= rows) { rr = rr - rows; }
+      if (cc < 0) { cc = cc + wide; } else if (cc >= wide) { cc = cc - wide; }
+    } else if (rr < 0 || rr >= rows || cc < 0 || cc >= wide) {
+      continue;
+    }
+    k = k + (src[u32(rr * wide + cc)] & 1u);
+  }
+  return k;
+}
+`;
+
+const STEP_WGSL = P_STRUCT + `
+@group(0) @binding(0) var<uniform> P : Params;
+@group(0) @binding(1) var<storage, read> src : array<u32>;
+@group(0) @binding(2) var<storage, read_write> dst : array<u32>;
+@group(0) @binding(3) var<storage, read> offs : array<i32>;
+@group(0) @binding(4) var<storage, read> rates : array<f32>;
+@group(0) @binding(5) var<storage, read_write> tally : array<atomic<u32>, 2>;
+var<private> rng : u32;
+fn hash(x : u32) -> u32 {
+  var v = x;
+  v = v ^ (v >> 16u);
+  v = v * 2246822519u;
+  v = v ^ (v >> 13u);
+  v = v * 3266489917u;
+  v = v ^ (v >> 16u);
+  return v;
+}
+fn nextRand() -> f32 {
+  rng = hash(rng);
+  // 24 bits keeps every value exact in f32, and caps the result just under 1.0
+  // so a 100% rate always fires and a 0% rate never does.
+  return f32(rng >> 8u) * 5.9604644775390625e-8;
+}
+` + P_COUNT + `
+@compute @workgroup_size(8, 8)
+fn stepMain(@builtin(global_invocation_id) gid : vec3<u32>) {
+  let c = gid.x;
+  let r = gid.y;
+  if (c >= P.dims.x || r >= P.dims.y) { return; }
+  let idx = r * P.dims.x + c;
+  rng = hash(idx * 2654435761u + P.flags.y);
+  let cell = src[idx];
+  let alive = (cell & 1u) == 1u;
+  var acc = (cell >> 8u) & 255u;
+  var forced = false;
+  if (P.flags.z == 1u) {
+    let n = countAt(i32(r), i32(c), P.offB.x, P.offB.y);
+    let raw = rates[P.offC.x + n];
+    let p = abs(raw);
+    if (p > 0.0 && nextRand() < p) {
+      if (raw < 0.0) {
+        if (acc > 0u) { acc = acc - 1u; }
+      } else if (acc < 100u) {
+        acc = acc + 1u;
+      }
+    }
+    if (acc >= P.dims.w) { forced = true; }
+  }
+  var out : u32 = 0u;
+  if (!forced) {
+    if (alive) {
+      let n = countAt(i32(r), i32(c), P.offA.z, P.offA.w);
+      if (nextRand() >= rates[P.offB.w + n]) { out = 1u; }
+    } else {
+      let n = countAt(i32(r), i32(c), P.offA.x, P.offA.y);
+      if (nextRand() < rates[P.offB.z + n]) {
+        out = 1u;
+        if (P.flags.x == 1u) { acc = 0u; }
+      }
+    }
+  }
+  dst[idx] = out | (acc << 8u);
+  if (out == 1u) { atomicAdd(&tally[0], 1u); }
+  if (forced) { atomicAdd(&tally[1], 1u); }
+}
+`;
+
+const SHADE_WGSL = P_STRUCT + `
+@group(0) @binding(0) var<uniform> P : Params;
+@group(0) @binding(1) var<storage, read> src : array<u32>;
+@group(0) @binding(2) var<storage, read_write> tint : array<u32>;
+@group(0) @binding(3) var<storage, read> offs : array<i32>;
+@group(0) @binding(4) var<storage, read> rates : array<f32>;
+` + P_COUNT + `
+@compute @workgroup_size(8, 8)
+fn shadeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
+  if (gid.x >= P.vis.z || gid.y >= P.vis.w) { return; }
+  let c = P.vis.x + gid.x;
+  let r = P.vis.y + gid.y;
+  if (c >= P.dims.x || r >= P.dims.y) { return; }
+  let idx = r * P.dims.x + c;
+  let cell = src[idx];
+  let alive = (cell & 1u) == 1u;
+  var t : f32 = 0.0;
+  if (P.flags.w == 0u) {
+    if (alive) {
+      let n = countAt(i32(r), i32(c), P.offA.z, P.offA.w);
+      t = rates[P.offB.w + n];
+    } else {
+      let n = countAt(i32(r), i32(c), P.offA.x, P.offA.y);
+      t = rates[P.offB.z + n];
+    }
+  } else if (P.dims.w > 0u) {
+    t = clamp(f32((cell >> 8u) & 255u) / f32(P.dims.w), 0.0, 1.0);
+  }
+  let lo = select(P.deadLo, P.liveLo, alive);
+  let hi = select(P.deadHi, P.liveHi, alive);
+  let col = mix(lo, hi, t);
+  tint[idx] = pack4x8unorm(vec4<f32>(col.x, col.y, col.z, 1.0));
+}
+`;
+
+const RESAMPLE_WGSL = P_STRUCT + `
+@group(0) @binding(0) var<uniform> P : Params;
+@group(0) @binding(1) var<storage, read> src : array<u32>;
+@group(0) @binding(2) var<storage, read_write> dst : array<u32>;
+@compute @workgroup_size(8, 8)
+fn resampleMain(@builtin(global_invocation_id) gid : vec3<u32>) {
+  if (gid.x >= P.dims.x || gid.y >= P.dims.y) { return; }
+  let oc = max(P.offC.y, 1u);
+  let orow = max(P.offC.z, 1u);
+  // Matches the CPU resample: floor((n + 0.5) * old / new), in integer maths.
+  let sc = min(oc - 1u, (gid.x * 2u + 1u) * oc / (P.dims.x * 2u));
+  let sr = min(orow - 1u, (gid.y * 2u + 1u) * orow / (P.dims.y * 2u));
+  dst[gid.y * P.dims.x + gid.x] = src[sr * oc + sc];
+}
+`;
+
+const RENDER_WGSL = P_STRUCT + `
+@group(0) @binding(0) var<uniform> P : Params;
+@group(0) @binding(1) var<storage, read> tint : array<u32>;
+@vertex
+fn vsMain(@builtin(vertex_index) vi : u32) -> @builtin(position) vec4<f32> {
+  var pts = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+  return vec4<f32>(pts[vi], 0.0, 1.0);
+}
+@fragment
+fn fsMain(@builtin(position) fc : vec4<f32>) -> @location(0) vec4<f32> {
+  let cx = P.view.x + (fc.x / P.screen.x) * P.view.z;
+  let cy = P.view.y + (fc.y / P.screen.y) * P.view.w;
+  let ci = clamp(floor(cx), 0.0, f32(P.dims.x) - 1.0);
+  let ri = clamp(floor(cy), 0.0, f32(P.dims.y) - 1.0);
+  var col = unpack4x8unorm(tint[u32(ri) * P.dims.x + u32(ci)]);
+  if (P.screen.w > 0.5) {
+    if (fract(cx) * P.screen.z < 1.0 || fract(cy) * P.screen.z < 1.0) {
+      col = vec4<f32>(col.xyz * 0.55, 1.0);
+    }
+  }
+  return vec4<f32>(col.xyz, 1.0);
+}
+`;
+
+const MAX_OFFS = (MASK_N * MASK_N - 1) * 2 * 3;   // dr,dc pairs for three masks
+const MAX_RATES = (MASK_N * MASK_N) * 3;
+
+const gpu = {
+  supported: false, ready: false, active: false, fatal: false, error: '', note: '',
+  device: null, ctx: null, format: null,
+  stepPipe: null, shadePipe: null, renderPipe: null, resamplePipe: null,
+  buf: {}, bg: {}, bases: {}, cells: 0, cur: 0,
+  params: new ArrayBuffer(192), pf: null, pu: null,
+  seedCell: new Uint32Array(1), seed: 1,
+  upload: null, mirror: null, mirrorGen: -1, oldDims: null, rowScratch: new Uint32Array(MAX_COLS),
+  rulesDirty: true, hold: false, gen: 0, retries: 0, tallyValid: false, recountPending: false,
+  reads: { stats: { buf: null, busy: false, size: 0 }, state: { buf: null, busy: false, size: 0 } }
+};
+gpu.pf = new Float32Array(gpu.params);
+gpu.pu = new Uint32Array(gpu.params);
+
+function stateBuf() { return gpu.cur === 0 ? gpu.buf.a : gpu.buf.b; }
+
+async function initGPU() {
+  if (!('gpu' in navigator)) { gpu.error = 'This browser has no WebGPU'; refreshEngineUI(); return; }
+  gpu.supported = true;
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) throw new Error('no GPU adapter offered');
+    const device = await adapter.requestDevice();
+    gpu.device = device;
+    device.lost.then((info) => { if (gpu.device === device) failGPU('device lost: ' + info.message); });
+    device.addEventListener('uncapturederror', (ev) => recoverGPU(ev.error.message));
+
+    gpu.format = navigator.gpu.getPreferredCanvasFormat();
+    gpu.ctx = gpuCanvas.getContext('webgpu');
+    gpu.ctx.configure({ device, format: gpu.format, alphaMode: 'opaque' });
+
+    const comp = (code, entryPoint) => device.createComputePipeline({
+      layout: 'auto', compute: { module: device.createShaderModule({ code }), entryPoint }
+    });
+    gpu.stepPipe = comp(STEP_WGSL, 'stepMain');
+    gpu.shadePipe = comp(SHADE_WGSL, 'shadeMain');
+    gpu.resamplePipe = comp(RESAMPLE_WGSL, 'resampleMain');
+    const rm = device.createShaderModule({ code: RENDER_WGSL });
+    gpu.renderPipe = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module: rm, entryPoint: 'vsMain' },
+      fragment: { module: rm, entryPoint: 'fsMain', targets: [{ format: gpu.format }] },
+      primitive: { topology: 'triangle-list' }
+    });
+    gpu.ready = true;
+    gpu.note = adapter.info && adapter.info.vendor ? adapter.info.vendor : '';
+  } catch (err) {
+    gpu.ready = false;
+    gpu.error = String((err && err.message) || err);
+  }
+  refreshEngineUI();
+  if (gpu.ready && state.backend !== 'cpu') activateGPU();
+}
+
+function gpuAllocate(carry) {
+  const d = gpu.device;
+  if (!d) return;
+  const cells = state.cols * state.rows;
+  gpu.cells = cells;
+  const U = GPUBufferUsage;
+  // When resizing, the old state buffer is the source for the resample pass, so
+  // it is retired after the work completes rather than destroyed here.
+  const keep = carry ? carry.buf : null;
+  const retire = [];
+  for (const key of ['a', 'b', 'tint', 'offs', 'rates', 'params', 'tally']) {
+    const b = gpu.buf[key];
+    if (!b) continue;
+    if (b === keep) retire.push(b);
+    else { try { b.destroy(); } catch (e) { /* already gone */ } }
+  }
+  gpu.buf.a = d.createBuffer({ size: cells * 4, usage: U.STORAGE | U.COPY_DST | U.COPY_SRC });
+  gpu.buf.b = d.createBuffer({ size: cells * 4, usage: U.STORAGE | U.COPY_DST | U.COPY_SRC });
+  gpu.buf.tint = d.createBuffer({ size: cells * 4, usage: U.STORAGE });
+  gpu.buf.offs = d.createBuffer({ size: MAX_OFFS * 4, usage: U.STORAGE | U.COPY_DST });
+  gpu.buf.rates = d.createBuffer({ size: MAX_RATES * 4, usage: U.STORAGE | U.COPY_DST });
+  gpu.buf.params = d.createBuffer({ size: gpu.params.byteLength, usage: U.UNIFORM | U.COPY_DST });
+  gpu.buf.tally = d.createBuffer({ size: 8, usage: U.STORAGE | U.COPY_DST | U.COPY_SRC });
+  // Any readback still in flight refers to the old grid: stamp it stale and let
+  // go of the buffers rather than reusing or destroying something mid-map.
+  gpu.gen++;
+  orphanReads();
+  gpu.cur = 0;
+  gpu.tallyValid = false;
+  gpu.upload = new Uint32Array(cells);
+  gpu.mirror = new Uint32Array(cells);
+  gpu.mirrorGen = -1;
+
+  const mk = (pipe, list) => d.createBindGroup({
+    layout: pipe.getBindGroupLayout(0),
+    entries: list.map((buffer, binding) => ({ binding, resource: { buffer } }))
+  });
+  const B = gpu.buf;
+  gpu.bg.stepAB = mk(gpu.stepPipe, [B.params, B.a, B.b, B.offs, B.rates, B.tally]);
+  gpu.bg.stepBA = mk(gpu.stepPipe, [B.params, B.b, B.a, B.offs, B.rates, B.tally]);
+  gpu.bg.shadeA = mk(gpu.shadePipe, [B.params, B.a, B.tint, B.offs, B.rates]);
+  gpu.bg.shadeB = mk(gpu.shadePipe, [B.params, B.b, B.tint, B.offs, B.rates]);
+  gpu.bg.render = mk(gpu.renderPipe, [B.params, B.tint]);
+
+  gpu.rulesDirty = true;
+  if (carry) gpuResample(carry, retire);
+  else gpuPush();
+}
+
+/** Scale the live device state into the newly sized buffer. No CPU round trip,
+    so a resize never rewinds the simulation to an older snapshot. */
+function gpuResample(carry, retire) {
+  const d = gpu.device;
+  const drop = () => { for (const b of retire) { try { b.destroy(); } catch (e) { /* already gone */ } } };
+  try {
+    // The old dimensions ride in spare uniform slots. writeBuffer and submit are
+    // ordered on the queue, so a later draw overwriting params cannot race this.
+    gpu.oldDims = carry;
+    writeParams(visRect());
+    gpu.oldDims = null;
+    const bg = d.createBindGroup({
+      layout: gpu.resamplePipe.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: gpu.buf.params } },
+        { binding: 1, resource: { buffer: carry.buf } },
+        { binding: 2, resource: { buffer: gpu.buf.a } }
+      ]
+    });
+    const enc = d.createCommandEncoder();
+    const pass = enc.beginComputePass();
+    pass.setPipeline(gpu.resamplePipe);
+    pass.setBindGroup(0, bg);
+    pass.dispatchWorkgroups(Math.ceil(state.cols / 8), Math.ceil(state.rows / 8));
+    pass.end();
+    d.queue.submit([enc.finish()]);
+    gpu.cur = 0;
+    // Counts and the CPU mirror both come from the next snapshot.
+    gpu.recountPending = true;
+    gpuReadback();
+    const done = d.queue.onSubmittedWorkDone ? d.queue.onSubmittedWorkDone() : Promise.resolve();
+    done.then(drop, drop);
+  } catch (err) {
+    drop();
+    gpuPush();
+    recoverGPU(err.message || String(err));
+  }
+}
+
+function uploadRules() {
+  const offs = new Int32Array(MAX_OFFS);
+  const rates = new Float32Array(MAX_RATES);
+  let p = 0, q = 0;
+  for (const k of KINDS) {
+    const o = state.offsets[k];
+    gpu.bases[k + 'Off'] = p;
+    for (let i = 0; i < o.n; i++) { offs[p++] = o.dr[i]; offs[p++] = o.dc[i]; }
+    gpu.bases[k + 'Rate'] = q;
+    const r = state.rates[k];
+    for (let i = 0; i < r.length; i++) {
+      rates[q++] = k === 'decay' && state.decayDir[i] < 0 ? -r[i] / 100 : r[i] / 100;
+    }
+  }
+  gpu.device.queue.writeBuffer(gpu.buf.offs, 0, offs);
+  gpu.device.queue.writeBuffer(gpu.buf.rates, 0, rates);
+  gpu.rulesDirty = false;
+}
+
+function visRect() {
+  const v = state.view;
+  const vw = state.cols / v.zoom, vh = state.rows / v.zoom;
+  const c0 = clampInt(Math.floor(v.x), 0, state.cols - 1);
+  const r0 = clampInt(Math.floor(v.y), 0, state.rows - 1);
+  const c1 = clampInt(Math.ceil(v.x + vw), c0 + 1, state.cols);
+  const r1 = clampInt(Math.ceil(v.y + vh), r0 + 1, state.rows);
+  return { c0, r0, w: c1 - c0, h: r1 - r0, vw, vh };
+}
+
+function writeParams(vis) {
+  const pf = gpu.pf, pu = gpu.pu, col = state.colours;
+  const put = (at, hex) => { const c = hexToRgb(hex); pf[at] = c[0] / 255; pf[at + 1] = c[1] / 255; pf[at + 2] = c[2] / 255; pf[at + 3] = 1; };
+  put(0, col.liveLo); put(4, col.liveHi); put(8, col.deadLo); put(12, col.deadHi);
+  pf[16] = state.view.x; pf[17] = state.view.y; pf[18] = vis.vw; pf[19] = vis.vh;
+  const cw = gpuCanvas.width, ch = gpuCanvas.height, scale = cw / vis.vw;
+  pf[20] = cw; pf[21] = ch; pf[22] = scale; pf[23] = state.borders && scale >= 5 ? 1 : 0;
+  pu[24] = state.cols; pu[25] = state.rows; pu[26] = state.wrap ? 1 : 0; pu[27] = state.threshold;
+  pu[28] = state.resetOnBirth ? 1 : 0; pu[29] = gpu.seed >>> 0;
+  pu[30] = state.threshold > 0 ? 1 : 0; pu[31] = state.colourMode === 'rates' ? 0 : 1;
+  pu[32] = gpu.bases.birthOff; pu[33] = state.offsets.birth.n;
+  pu[34] = gpu.bases.deathOff; pu[35] = state.offsets.death.n;
+  pu[36] = gpu.bases.decayOff; pu[37] = state.offsets.decay.n;
+  pu[38] = gpu.bases.birthRate; pu[39] = gpu.bases.deathRate;
+  pu[40] = gpu.bases.decayRate;
+  pu[41] = gpu.oldDims ? gpu.oldDims.cols : 0;
+  pu[42] = gpu.oldDims ? gpu.oldDims.rows : 0;
+  pu[43] = 0;
+  pu[44] = vis.c0; pu[45] = vis.r0; pu[46] = vis.w; pu[47] = vis.h;
+  gpu.device.queue.writeBuffer(gpu.buf.params, 0, gpu.params);
+}
+
+function gpuAdvance(n) {
+  const d = gpu.device;
+  try {
+    if (gpu.rulesDirty) uploadRules();
+    writeParams(visRect());
+    const gx = Math.ceil(state.cols / 8), gy = Math.ceil(state.rows / 8);
+    for (let i = 0; i < n; i++) {
+      gpu.seed = (Math.imul(gpu.seed, 1664525) + 1013904223) >>> 0;
+      gpu.seedCell[0] = gpu.seed;
+      d.queue.writeBuffer(gpu.buf.params, 29 * 4, gpu.seedCell);
+      const enc = d.createCommandEncoder();
+      enc.clearBuffer(gpu.buf.tally, 0, 8);
+      const pass = enc.beginComputePass();
+      pass.setPipeline(gpu.stepPipe);
+      pass.setBindGroup(0, gpu.cur === 0 ? gpu.bg.stepAB : gpu.bg.stepBA);
+      pass.dispatchWorkgroups(gx, gy);
+      pass.end();
+      d.queue.submit([enc.finish()]);
+      gpu.cur ^= 1;
+    }
+    gpu.tallyValid = true;
+    state.gen += n;
+    gpuReadback();
+  } catch (err) { recoverGPU(err.message || String(err)); }
+}
+
+function drawGPU() {
+  const d = gpu.device;
+  try {
+    if (gpu.rulesDirty) uploadRules();
+    const vis = visRect();
+    writeParams(vis);
+    const enc = d.createCommandEncoder();
+    const sp = enc.beginComputePass();
+    sp.setPipeline(gpu.shadePipe);
+    sp.setBindGroup(0, gpu.cur === 0 ? gpu.bg.shadeA : gpu.bg.shadeB);
+    sp.dispatchWorkgroups(Math.ceil(vis.w / 8), Math.ceil(vis.h / 8));
+    sp.end();
+    const rp = enc.beginRenderPass({
+      colorAttachments: [{
+        view: gpu.ctx.getCurrentTexture().createView(),
+        loadOp: 'clear', storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 1 }
+      }]
+    });
+    rp.setPipeline(gpu.renderPipe);
+    rp.setBindGroup(0, gpu.bg.render);
+    rp.draw(3);
+    rp.end();
+    d.queue.submit([enc.finish()]);
+  } catch (err) { recoverGPU(err.message || String(err)); }
+}
+
+/* Pull tallies (and a state snapshot for editing) without blocking the queue.
+
+   Every map must be paired with exactly one unmap, on every path. The earlier
+   version mapped both buffers under one Promise.all: if either map rejected, or
+   if the mirror copy threw because the grid had been resized underneath it, the
+   shared catch cleared the busy flag while the other buffer was still mapped.
+   The next frame then submitted a copy into that mapped buffer, which is a
+   validation error ("used in submit while mapped") and killed the device queue.
+   Each slot now maps independently, unmaps in a finally, and carries a
+   generation stamp so results from before a reallocation are simply dropped. */
+function orphanReads() {
+  for (const slot of Object.values(gpu.reads)) {
+    // A busy buffer is still mapping; let its own handler unmap it and let go
+    // of the reference so nothing ever submits into it again.
+    if (slot.busy) { slot.buf = null; slot.busy = false; slot.size = 0; }
+  }
+}
+function readTarget(slot, size) {
+  if (slot.busy) return null;
+  if (!slot.buf || slot.size !== size) {
+    if (slot.buf) { try { slot.buf.destroy(); } catch (e) { /* already gone */ } }
+    slot.buf = gpu.device.createBuffer({ size, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    slot.size = size;
+  }
+  return slot.buf;
+}
+function readInto(slot, gen, onData) {
+  const buf = slot.buf;
+  slot.busy = true;
+  buf.mapAsync(GPUMapMode.READ)
+    .then(() => {
+      try {
+        if (gen === gpu.gen) onData(new Uint32Array(buf.getMappedRange()));
+      } finally {
+        try { buf.unmap(); } catch (e) { /* device may be gone */ }
+      }
+    })
+    .catch(() => { /* map rejected: nothing was mapped, nothing to release */ })
+    .then(() => { if (slot.buf === buf) slot.busy = false; });
+}
+
+/* A snapshot is taken every frame the sim advances. An earlier version only
+   took one while paused, hovering or editing — but resizing and editing both
+   unpack the mirror into the CPU arrays, so if you were running while dragging
+   a slider (never touching the canvas, so never hovering) the mirror stayed
+   frozen at whenever you last hovered, and the resize resurrected that state
+   hundreds of generations later. Staleness is now bounded by readback latency
+   instead of by user behaviour, and the stamp says exactly how stale it is. */
+function gpuReadback() {
+  if (gpu.hold || painting) return;
+  const d = gpu.device;
+  const gen = gpu.gen;
+  const atGen = state.gen;
+  try {
+    const enc = d.createCommandEncoder();
+    let any = false;
+
+    const stats = readTarget(gpu.reads.stats, 8);
+    if (stats) { enc.copyBufferToBuffer(gpu.buf.tally, 0, stats, 0, 8); any = true; }
+
+    const snap = readTarget(gpu.reads.state, gpu.cells * 4);
+    if (snap) { enc.copyBufferToBuffer(stateBuf(), 0, snap, 0, gpu.cells * 4); any = true; }
+
+    if (!any) return;
+    d.queue.submit([enc.finish()]);
+
+    if (stats) readInto(gpu.reads.stats, gen, (t) => {
+      // A freshly created tally buffer reads as zero; ignore it until a step has
+      // actually run, or the counters flash 0 after every reallocation.
+      if (!gpu.tallyValid) return;
+      state.live = t[0];
+      state.spent = state.threshold > 0 ? t[1] : 0;
+      updateStats();
+    });
+    if (snap) readInto(gpu.reads.state, gen, (data) => {
+      if (!gpu.mirror || data.length !== gpu.mirror.length) return;
+      gpu.mirror.set(data);
+      gpu.mirrorGen = atGen;
+      if (gpu.recountPending) {
+        gpu.recountPending = false;
+        gpuSyncDown();
+        updateStats();
+        scheduleDraw();
+      }
+    });
+  } catch (err) { recoverGPU(err.message || String(err)); }
+}
+
+/** Unpack the last GPU snapshot into the CPU arrays so editing can proceed. */
+function gpuSyncDown() {
+  if (!gpu.mirror || gpu.mirror.length !== state.grid.length) return;
+  const m = gpu.mirror, g = state.grid, a = state.accum;
+  for (let i = 0; i < m.length; i++) { const v = m[i]; g[i] = v & 1; a[i] = (v >>> 8) & 255; }
+  recount();
+}
+/** Push the whole CPU state up. */
+function gpuPush() {
+  if (!gpu.device || !gpu.buf.a || !gpu.upload) return;
+  const buf = gpu.upload, g = state.grid, a = state.accum;
+  for (let i = 0; i < buf.length; i++) buf[i] = g[i] | (a[i] << 8);
+  gpu.device.queue.writeBuffer(stateBuf(), 0, buf);
+  gpu.mirror.set(buf);
+  gpu.mirrorGen = state.gen;
+}
+/** Push one edited rectangle up (rows are contiguous, so one write each). */
+function gpuPushRect(c0, r0, c1, r1) {
+  if (!gpu.active || !gpu.device) return;
+  const cols = state.cols, w = c1 - c0 + 1;
+  const g = state.grid, a = state.accum, buf = stateBuf();
+  for (let r = r0; r <= r1; r++) {
+    const base = r * cols + c0;
+    const row = gpu.rowScratch.subarray(0, w);
+    for (let i = 0; i < w; i++) { row[i] = g[base + i] | (a[base + i] << 8); }
+    gpu.device.queue.writeBuffer(buf, base * 4, row);
+    if (gpu.mirror) gpu.mirror.set(row, base);
+  }
+}
+
+function activateGPU() {
+  if (!gpu.ready || gpu.active) return;
+  gpu.active = true;
+  gpu.seed = (Math.random() * 0xffffffff) >>> 0;
+  gpuAllocate();
+  canvas.classList.add('canvas-off');
+  gpuCanvas.classList.remove('canvas-off');
+  refreshEngineUI();
+  resizeCanvas();
+}
+function deactivateGPU() {
+  if (!gpu.active) return;
+  gpuSyncDown();
+  gpu.active = false;
+  gpu.hold = false;
+  gpuCanvas.classList.add('canvas-off');
+  canvas.classList.remove('canvas-off');
+  refreshEngineUI();
+  updateStats();
+  draw();
+}
+function failGPU(message) {
+  gpu.error = message || 'GPU error';
+  gpu.ready = false;
+  gpu.fatal = true;
+  deactivateGPU();
+  refreshEngineUI();
+}
+/* A validation error does not invalidate the device, so rebuilding the buffers
+   is usually enough to carry on. Only give up after this fails repeatedly. */
+function recoverGPU(message) {
+  gpu.error = message || 'GPU error';
+  if (gpu.fatal || !gpu.active || gpu.retries >= 3) { failGPU(gpu.error); return; }
+  gpu.retries++;
+  try {
+    gpuSyncDown();
+    gpuAllocate();
+    refreshEngineUI();
+  } catch (err) { failGPU(err.message || String(err)); }
+}
+function retryGPU() {
+  gpu.retries = 0;
+  gpu.fatal = false;
+  gpu.error = '';
+  if (gpu.device && gpu.stepPipe) {
+    gpu.ready = true;
+    if (state.backend !== 'cpu') activateGPU();
+    refreshEngineUI();
+  } else {
+    initGPU();
+  }
+}
+function setBackend(mode) {
+  state.backend = mode;
+  for (const b of document.querySelectorAll('[data-engine]')) {
+    b.setAttribute('aria-selected', String(b.dataset.engine === mode));
+  }
+  if (mode === 'cpu') deactivateGPU();
+  else if (gpu.ready) activateGPU();
+  refreshEngineUI();
+}
+function refreshEngineUI() {
+  const pill = $('enginePill'), chip = $('engineChip'), help = $('engineHelp');
+  const on = gpu.active;
+  pill.textContent = on ? 'GPU' : 'CPU';
+  pill.classList.toggle('is-gpu', on);
+  chip.textContent = on ? 'WebGPU' : 'CPU';
+  let text;
+  if (on) text = 'Running the step and shade passes as WebGPU compute shaders'
+    + (gpu.note ? ' on ' + gpu.note : '') + '. Editing still happens on the CPU and is uploaded.';
+  else if (gpu.ready) text = 'WebGPU is available. Pick GPU or Auto to use the compute shaders.';
+  else if (state.backend === 'gpu' && gpu.error) text = 'GPU unavailable, staying on the CPU: ' + gpu.error + '.';
+  else if (gpu.error) text = 'CPU only: ' + gpu.error + '. Everything still works, just single-threaded.';
+  else text = 'Looking for WebGPU…';
+  if (on && gpu.retries) text += ' Recovered from ' + gpu.retries + ' error' + (gpu.retries === 1 ? '' : 's') + '.';
+  help.textContent = text;
+  pill.title = text;
+  pill.classList.toggle('is-warn', !on && !!gpu.error && gpu.supported);
+  $('gpuRetry').classList.toggle('hidden', on || !gpu.supported || !gpu.error);
+}
+
+/* ============================ determinism ============================ */
+function fractionalRates() {
+  let n = 0;
+  const scan = (arr) => { for (const v of arr) if (v > 0 && v < 100) n++; };
+  scan(state.rates.birth);
+  scan(state.rates.death);
+  if (state.threshold > 0) scan(state.rates.decay);
+  return n;
+}
+function refreshDeterminism() {
+  const n = fractionalRates();
+  const pill = $('detPill');
+  pill.textContent = n === 0 ? 'Deterministic' : 'Stochastic';
+  pill.classList.toggle('is-det', n === 0);
+  pill.classList.toggle('is-sto', n !== 0);
+  pill.title = n === 0
+    ? 'Every active rate is exactly 0% or 100%, so no dice are rolled while stepping. CPU and GPU produce identical runs. The random fill is still random.'
+    : n + (n === 1 ? ' rate is' : ' rates are') + ' between 0% and 100%, so every generation rolls against them.';
+}
+function markRulesChanged() {
+  gpu.rulesDirty = true;
+  refreshDeterminism();
 }
 
 /* ============================ view ============================ */
@@ -1068,6 +1852,7 @@ function renderRules(kind) {
       num.setAttribute('aria-label', kind + ' rate at ' + i + ' live neighbours');
 
       row.append(range, num);
+      attachStepper(num);
       frag.append(row);
     }
     list.replaceChildren(frag);
@@ -1103,6 +1888,7 @@ function onRuleInput(event) {
   if (el.dataset.role === 'dir') {
     state.decayDir[idx] = el.checked ? -1 : 1;
     el.closest('.rule-row').classList.toggle('down', el.checked);
+    markRulesChanged();
     return;
   }
   if (el.value === '' && el.type === 'number') return;
@@ -1113,6 +1899,7 @@ function onRuleInput(event) {
   for (const sib of row.querySelectorAll('input[type="range"],input[type="number"]')) {
     if (sib !== el) sib.value = String(v);
   }
+  markRulesChanged();
   if (kind !== 'decay') scheduleDraw();
 }
 
@@ -1210,18 +1997,117 @@ function applyPreset(name) {
   }
   state.threshold = p.threshold || 0;
   ui.threshold.set(state.threshold);
-  recount();
+  if (!gpu.active) recount();
   syncClampChip();
   updateStats();
   scheduleDraw();
 }
 
+/* ============================ number steppers ============================ */
+function bumpNumber(input, dir) {
+  const size = Number(input.step) || 1;
+  const lo = Number.isFinite(Number(input.min)) ? Number(input.min) : -Infinity;
+  const hi = Number.isFinite(Number(input.max)) ? Number(input.max) : Infinity;
+  const now = Number(input.value);
+  const next = clamp((Number.isFinite(now) ? now : lo) + dir * size, lo, hi);
+  if (next === now) return;
+  input.value = String(next);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function attachStepper(input) {
+  if (!input || input.dataset.stepper === '1' || !input.parentNode) return;
+  input.dataset.stepper = '1';
+  const wrap = document.createElement('span');
+  wrap.className = 'stepper';
+  input.parentNode.insertBefore(wrap, input);
+  wrap.append(input);
+  const spin = document.createElement('span');
+  spin.className = 'spin';
+  for (const dir of [1, -1]) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.tabIndex = -1;
+    b.textContent = dir > 0 ? '▲' : '▼';
+    b.setAttribute('aria-label', (dir > 0 ? 'Increase ' : 'Decrease ') + (input.getAttribute('aria-label') || 'value'));
+    let hold = null, repeat = null;
+    const stop = () => { clearTimeout(hold); clearInterval(repeat); hold = null; repeat = null; };
+    b.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      if (input.disabled) return;
+      bumpNumber(input, dir);
+      hold = setTimeout(() => { repeat = setInterval(() => bumpNumber(input, dir), 55); }, 330);
+    });
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, stop);
+    window.addEventListener('blur', stop);
+    spin.append(b);
+  }
+  wrap.append(spin);
+}
+
+/* ============================ hover reticle ============================ */
+let hover = null;
+function activeCanvas() { return gpu.active ? gpuCanvas : canvas; }
+function cellInfo(c, r) {
+  const i = r * state.cols + c;
+  if (gpu.active && gpu.mirror && gpu.mirror.length === state.grid.length) {
+    const v = gpu.mirror[i];
+    return { alive: (v & 1) === 1, acc: (v >>> 8) & 255 };
+  }
+  return { alive: state.grid[i] === 1, acc: state.accum[i] };
+}
+function clearHover() {
+  hover = null;
+  $('reticle').hidden = true;
+  $('coords').hidden = true;
+}
+function setHover(clientX, clientY) {
+  hover = cellAt(clientX, clientY);
+  drawReticle();
+}
+function drawReticle() {
+  if (!hover) return;
+  const ret = $('reticle'), lab = $('coords');
+  const cr = activeCanvas().getBoundingClientRect();
+  const fr = $('frame').getBoundingClientRect();
+  const v = state.view;
+  const sx = cr.width / (state.cols / v.zoom);
+  const sy = cr.height / (state.rows / v.zoom);
+  const left = (cr.left - fr.left) + (hover.c - v.x) * sx;
+  const top = (cr.top - fr.top) + (hover.r - v.y) * sy;
+  ret.hidden = false;
+  ret.style.width = Math.max(2, sx) + 'px';
+  ret.style.height = Math.max(2, sy) + 'px';
+  ret.style.transform = 'translate(' + left + 'px,' + top + 'px)';
+
+  const info = cellInfo(hover.c, hover.r);
+  let x = hover.c, y = hover.r;
+  if (state.centreOrigin) {
+    const mid = centreCell();
+    x -= mid.c;
+    y -= mid.r;
+  }
+  const show = (n) => (state.centreOrigin && n > 0 ? '+' + n : String(n));
+  let text = show(x) + ', ' + show(y) + ' <i>' + (info.alive ? 'live' : 'dead') + '</i>';
+  if (state.threshold > 0) text += ' <b>' + info.acc + '/' + state.threshold + '</b>';
+  lab.innerHTML = text;
+  lab.hidden = false;
+
+  let lx = left + sx + 12, ly = top - lab.offsetHeight - 8;
+  if (lx + lab.offsetWidth > fr.width - 4) lx = left - lab.offsetWidth - 12;
+  if (lx < 4) lx = 4;
+  if (ly < 4) ly = top + sy + 8;
+  if (ly + lab.offsetHeight > fr.height - 4) ly = Math.max(4, fr.height - lab.offsetHeight - 4);
+  lab.style.transform = 'translate(' + lx + 'px,' + ly + 'px)';
+}
+
 /* ============================ pointer input ============================ */
 const pointers = new Map();
 let painting = false, panning = false, strokeValue = 1, lastCell = null, lastPan = null, pinch = null;
+let paintRect = null;
 
 function normPoint(clientX, clientY) {
-  const rect = canvas.getBoundingClientRect();
+  const rect = activeCanvas().getBoundingClientRect();
   return { u: (clientX - rect.left) / rect.width, v: (clientY - rect.top) / rect.height, rect };
 }
 function cellAt(clientX, clientY) {
@@ -1232,19 +2118,28 @@ function cellAt(clientX, clientY) {
     r: clampInt(Math.floor(view.y + v * (state.rows / view.zoom)), 0, state.rows - 1)
   };
 }
+function noteRect(c0, r0, c1, r1) {
+  if (!paintRect) { paintRect = { c0, r0, c1, r1 }; return; }
+  if (c0 < paintRect.c0) paintRect.c0 = c0;
+  if (r0 < paintRect.r0) paintRect.r0 = r0;
+  if (c1 > paintRect.c1) paintRect.c1 = c1;
+  if (r1 > paintRect.r1) paintRect.r1 = r1;
+}
 function paintBlock(c, r, value) {
   const rad = (state.brush - 1) >> 1;
-  const cols = state.cols, rows = state.rows, g = state.grid;
+  const cols = state.cols, g = state.grid;
+  const r0 = Math.max(0, r - rad), r1 = Math.min(state.rows - 1, r + rad);
+  const c0 = Math.max(0, c - rad), c1 = Math.min(cols - 1, c + rad);
+  if (r1 < r0 || c1 < c0) return 0;
   let delta = 0;
-  for (let rr = r - rad; rr <= r + rad; rr++) {
-    if (rr < 0 || rr >= rows) continue;
+  for (let rr = r0; rr <= r1; rr++) {
     const base = rr * cols;
-    for (let cc = c - rad; cc <= c + rad; cc++) {
-      if (cc < 0 || cc >= cols) continue;
+    for (let cc = c0; cc <= c1; cc++) {
       const i = base + cc;
       if (g[i] !== value) { g[i] = value; delta += value ? 1 : -1; }
     }
   }
+  noteRect(c0, r0, c1, r1);
   return delta;
 }
 function paintLine(a, b, value) {
@@ -1258,6 +2153,8 @@ function paintLine(a, b, value) {
   return delta;
 }
 function commitPaint(delta) {
+  if (paintRect && gpu.active) gpuPushRect(paintRect.c0, paintRect.r0, paintRect.c1, paintRect.r1);
+  paintRect = null;
   if (!delta) return;
   state.live += delta;
   updateStats();
@@ -1291,28 +2188,35 @@ function updatePinch() {
   updateStats();
   scheduleDraw();
 }
-function setupPointer() {
-  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+function setupPointer(el) {
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  canvas.addEventListener('wheel', (e) => {
+  el.addEventListener('wheel', (e) => {
     e.preventDefault();
     const { u, v } = normPoint(e.clientX, e.clientY);
     zoomAt(u, v, e.deltaY < 0 ? 1.14 : 1 / 1.14);
+    setHover(e.clientX, e.clientY);
   }, { passive: false });
 
-  canvas.addEventListener('pointerdown', (e) => {
+  el.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    canvas.setPointerCapture(e.pointerId);
+    el.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    setHover(e.clientX, e.clientY);
 
     if (e.pointerType === 'touch' && pointers.size >= 2) { startPinch(); return; }
     if (e.button === 1 || (e.button === 2 && e.pointerType === 'mouse')) {
       panning = true; painting = false;
       lastPan = { x: e.clientX, y: e.clientY };
-      canvas.style.cursor = 'grabbing';
+      el.style.cursor = 'grabbing';
       return;
     }
     if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    // Editing is a CPU operation: freeze the sim and bring the CPU arrays level
+    // with the GPU. Only the painted rectangle is pushed back, so a snapshot
+    // that is a generation behind can never clobber newer GPU state.
+    if (gpu.active) { gpu.hold = true; gpuSyncDown(); }
 
     const cell = cellAt(e.clientX, e.clientY);
     strokeValue = state.grid[cell.r * state.cols + cell.c] === 1 ? 0 : 1;
@@ -1321,20 +2225,21 @@ function setupPointer() {
     commitPaint(paintBlock(cell.c, cell.r, strokeValue));
   });
 
-  canvas.addEventListener('pointermove', (e) => {
+  el.addEventListener('pointermove', (e) => {
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
     if (pinch && pointers.size >= 2) { e.preventDefault(); updatePinch(); return; }
 
     if (panning && lastPan) {
       e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
+      const rect = el.getBoundingClientRect();
       const view = state.view;
       view.x -= ((e.clientX - lastPan.x) / rect.width) * (state.cols / view.zoom);
       view.y -= ((e.clientY - lastPan.y) / rect.height) * (state.rows / view.zoom);
       lastPan = { x: e.clientX, y: e.clientY };
       clampView();
       scheduleDraw();
+      setHover(e.clientX, e.clientY);
       return;
     }
 
@@ -1347,6 +2252,7 @@ function setupPointer() {
       lastCell = cell;
       commitPaint(delta);
     }
+    setHover(e.clientX, e.clientY);
   });
 
   const release = (e) => {
@@ -1354,12 +2260,15 @@ function setupPointer() {
     if (pointers.size < 2) pinch = null;
     if (pointers.size === 0) {
       painting = false; panning = false; lastCell = null; lastPan = null;
-      canvas.style.cursor = 'crosshair';
+      gpu.hold = false;
+      el.style.cursor = 'crosshair';
+      if (e.pointerType !== 'mouse') clearHover();
     }
   };
-  canvas.addEventListener('pointerup', release);
-  canvas.addEventListener('pointercancel', release);
-  canvas.addEventListener('lostpointercapture', release);
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointercancel', release);
+  el.addEventListener('lostpointercapture', release);
+  el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !painting && !panning) clearHover(); });
 }
 
 /* ============================ UI wiring ============================ */
@@ -1367,6 +2276,14 @@ const ui = {};
 
 function syncClampChip() {
   $('clampChip').textContent = state.clampMin + '–' + state.clampMax + '%';
+}
+function syncGridControls() {
+  const linked = state.linkGrid;
+  for (const id of ['cellR', 'cellN']) $(id).disabled = !linked;
+  for (const id of ['colsR', 'colsN', 'rowsR', 'rowsN']) $(id).disabled = linked;
+  $('cellField').classList.toggle('off', !linked);
+  $('colsField').classList.toggle('off', linked);
+  $('rowsField').classList.toggle('off', linked);
 }
 function applyClamp() {
   for (const k of KINDS) {
@@ -1392,6 +2309,7 @@ function applyMaster(kind, value) {
 function setAllDecayDir(down) {
   state.decayDir.fill(down ? -1 : 1);
   renderRules('decay');
+  markRulesChanged();
 }
 function randomizeRates(kinds) {
   for (const k of kinds) {
@@ -1419,6 +2337,8 @@ function syncGradients() {
 }
 
 function setupUI() {
+  for (const n of document.querySelectorAll('input[type="number"]')) attachStepper(n);
+
   /* tabs */
   for (const tab of document.querySelectorAll('.tab')) {
     tab.addEventListener('click', () => {
@@ -1460,9 +2380,28 @@ function setupUI() {
   $('lineMode').addEventListener('change', (e) => { state.lineMode = e.target.checked; });
 
   /* view tab */
-  bindPair('cellR', 'cellN', (v) => setCellSize(v));
+  ui.cell = bindPair('cellR', 'cellN', (v) => setCellSize(v));
+  ui.cols = bindPair('colsR', 'colsN', (v) => { if (!dimSync) setGrid(v, state.rows); });
+  ui.rows = bindPair('rowsR', 'rowsN', (v) => { if (!dimSync) setGrid(state.cols, v); });
+  $('linkGrid').addEventListener('change', (e) => {
+    state.linkGrid = e.target.checked;
+    syncGridControls();
+    if (state.linkGrid) setCellSize(state.cellSize);
+  });
+  $('oddDims').addEventListener('change', (e) => {
+    state.oddDims = e.target.checked;
+    if (state.linkGrid) { const d = gridDims(state.cellSize); setGrid(d.cols, d.rows); }
+    else setGrid(state.cols, state.rows);
+  });
+  $('centreOrigin').addEventListener('change', (e) => { state.centreOrigin = e.target.checked; drawReticle(); });
   $('wrapEdges').addEventListener('change', (e) => { state.wrap = e.target.checked; scheduleDraw(); });
   $('borders').addEventListener('change', (e) => { state.borders = e.target.checked; scheduleDraw(); });
+
+  /* engine */
+  for (const b of document.querySelectorAll('[data-engine]')) {
+    b.addEventListener('click', () => setBackend(b.dataset.engine));
+  }
+  $('gpuRetry').addEventListener('click', retryGPU);
 
   for (const [inputId, textId, key] of [
     ['liveLo', 'liveLoT', 'liveLo'], ['liveHi', 'liveHiT', 'liveHi'],
@@ -1495,14 +2434,17 @@ function setupUI() {
   ui.threshold = bindPair('thrR', 'thrN', (v) => {
     state.threshold = v;
     $('thrChip').textContent = v === 0 ? 'off' : 'at ' + v;
-    recount();
+    if (!gpu.active) recount();
+    refreshDeterminism();
     updateStats();
     scheduleDraw();
   });
   $('resetBirth').addEventListener('change', (e) => { state.resetOnBirth = e.target.checked; });
   $('clearAccum').addEventListener('click', () => {
+    if (gpu.active) gpuSyncDown();
     state.accum.fill(0);
     state.spent = 0;
+    if (gpu.active) gpuPush();
     updateStats();
     scheduleDraw();
   });
@@ -1552,15 +2494,20 @@ function init() {
   state.decayDir = new Int8Array(state.offsets.decay.n + 1).fill(1);
 
   setupUI();
-  setupPointer();
+  setupPointer(canvas);
+  setupPointer(gpuCanvas);
   buildLUTs();
   syncGradients();
   syncClampChip();
+  syncGridControls();
 
   for (const k of KINDS) { renderMask(k); renderRules(k); }
   setColourMode('rates');
   fillRandom();
   updateStats();
+  refreshDeterminism();
+  refreshEngineUI();
+  initGPU();
 
   if (window.matchMedia('(max-width:880px)').matches) $('app').classList.add('folded');
 
