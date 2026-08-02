@@ -249,6 +249,17 @@ input:disabled{opacity:.4;cursor:not-allowed}
 .swatch input[type="color"]{width:34px;height:28px;padding:0;border:1px solid var(--line-hi);border-radius:6px;background:var(--sunk);cursor:pointer}
 .swatch b{display:block;font-size:.72rem;font-weight:650;color:#d3dbe7}
 .swatch code{font-family:var(--mono);font-size:.66rem;color:var(--quiet)}
+.sel{
+  width:100%;border:1px solid var(--line-hi);border-radius:7px;background:var(--sunk);
+  color:var(--text);padding:6px 6px;font-size:.78rem;
+}
+#advPalette .swatch b{font-size:.68rem}
+.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(34px,1fr));gap:5px}
+.team-pick{
+  height:26px;border:1px solid var(--line-hi);border-radius:6px;padding:0;cursor:pointer;
+  font:inherit;font-size:.66rem;font-weight:800;color:rgba(0,0,0,.6);
+}
+.team-pick[aria-pressed="true"]{box-shadow:0 0 0 2px var(--text);border-color:var(--text)}
 
 /* ---------- stage ---------- */
 .stage{flex:1 1 auto;min-width:0;min-height:0;position:relative;display:grid;grid-template-rows:1fr auto;gap:8px;padding:10px}
@@ -287,6 +298,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
 }
 .coords i{font-style:normal;color:var(--quiet)}
 .coords b{color:var(--decay);font-weight:700}
+.coords u{text-decoration:none;color:#fff;font-weight:700}
 .pills{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .pill{
   display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
@@ -413,6 +425,11 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <label for="fillShape">Fill the shape</label>
               <input id="fillShape" type="checkbox" checked>
             </div>
+            <div class="field check hidden" id="teamField">
+              <label>Draw as</label>
+              <span></span>
+            </div>
+            <div class="teams hidden" id="teamPick"></div>
             <p class="help" id="toolHelp">Drag to paint. The first cell you touch decides whether the stroke writes live or dead.</p>
           </div>
 
@@ -452,6 +469,20 @@ input:disabled{opacity:.4;cursor:not-allowed}
           </div>
 
           <div class="card">
+            <h2 class="card-title">File</h2>
+            <div class="field check">
+              <label for="saveState">Include the grid contents</label>
+              <input id="saveState" type="checkbox" checked>
+            </div>
+            <div class="btn-row">
+              <button class="btn" id="saveBtn" type="button">Save…</button>
+              <button class="btn" id="loadBtn" type="button">Load…</button>
+            </div>
+            <input id="loadInput" type="file" accept="application/json,.json" class="hidden">
+            <p class="help" id="fileNote">Settings save as readable JSON; the grid is run-length packed alongside them. Each section carries its own version, so newer files stay loadable as features are added.</p>
+          </div>
+
+          <div class="card">
             <h2 class="card-title">Keys &amp; pointers</h2>
             <ul class="keys">
               <li><kbd>Space</kbd>start / pause</li>
@@ -484,6 +515,29 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <button class="btn decay" type="button" data-preset="ember">Ember</button>
             </div>
             <p class="help">Ember is Conway plus depletion: crowded cells burn out, sparse ones recover.</p>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Adversaries <span class="chip" id="advChip">off</span></h2>
+            <div class="field">
+              <label for="advR">Competing colours</label>
+              <input id="advR" type="range" min="1" max="6" step="1" value="1">
+              <input id="advN" type="number" min="1" max="6" step="1" value="1" aria-label="Number of adversaries">
+            </div>
+            <p class="help">Every colour plays by the same rules. A new cell goes to whichever colour holds the most live neighbours. Pick which colour you draw as on the Run tab, or press 1–6.</p>
+            <div id="advPalette" class="swatches"></div>
+            <div class="field" id="shadeField">
+              <label for="advShadeR">Fade when doomed</label>
+              <input id="advShadeR" type="range" min="0" max="90" step="1" value="62">
+              <input id="advShadeN" type="number" min="0" max="90" step="1" value="62" aria-label="Fade when doomed">
+            </div>
+            <p class="help">A cell at full colour is safe this generation; the more it fades, the likelier it is to die. Set to 0 for flat team colours.</p>
+            <div class="field" id="tieField">
+              <label for="tieSel">Ties go to</label>
+              <select id="tieSel" class="sel"></select>
+              <span></span>
+            </div>
+            <p class="help" id="tieNote"></p>
           </div>
 
           <div class="card">
@@ -734,6 +788,35 @@ const BASE_W = 700, BASE_H = 500; // grid budget in pixels-at-cell-size
 const ACC_MAX = 100;              // counter ceiling, matches threshold range
 const ZOOM_MIN = 1, ZOOM_MAX = 64;
 const MIN_DIM = 4, MAX_COLS = BASE_W, MAX_ROWS = BASE_H;
+
+/* ---------------- canonical cell word ----------------
+   One u32 per cell. This is the layout the GPU buffers and the save format
+   both use; the CPU keeps the same fields in parallel typed arrays because
+   that is faster to step. Reserved bits are deliberate headroom so a future
+   field never forces the buffers to be re-laid-out.
+
+     bit  0      alive
+     bits 1-4    colour id, 0-15 (only meaningful while alive)
+     bits 5-7    reserved
+     bits 8-15   depletion counter, 0-100
+     bits 16-31  reserved                                                    */
+const CELL_ALIVE = 0x1;
+const CELL_COLOUR_SHIFT = 1, CELL_COLOUR_BITS = 0xF;
+const CELL_ACC_SHIFT = 8, CELL_ACC_BITS = 0xFF;
+const packCell = (alive, colour, acc) =>
+  (alive & CELL_ALIVE) | ((colour & CELL_COLOUR_BITS) << CELL_COLOUR_SHIFT)
+                       | ((acc & CELL_ACC_BITS) << CELL_ACC_SHIFT);
+
+const MAX_ADVERSARIES = 6;
+const ADVERSARY_DEFAULTS = ['#ff9a00', '#3d8bfd', '#3fbf5f', '#ff2bd1', '#f6ff6b', '#a06bff'];
+/* How a birth resolves when two or more colours draw for the majority. */
+const TIE_POLICIES = [
+  { id: 'none',       label: 'No birth',   note: 'A drawn contest produces no cell at all. Deterministic, and the least arbitrary — note it also suppresses births into empty space, where every colour scores zero.' },
+  { id: 'lowest',     label: 'Lowest',     note: 'The lowest-numbered colour among those tied takes the cell. Deterministic, but favours colour 1.' },
+  { id: 'substitute', label: 'Substitute', note: 'A colour from outside the tied set takes the cell, chosen by the sum of the tied ids — so with C, D and E available, different pairings hand the cell to different bystanders instead of always the same one. When every colour ties there is no bystander, so the cell varies by position instead.' },
+  { id: 'random',     label: 'Random',     note: 'A uniform pick from the colours not tied. This is the only policy that rolls dice, so it marks the configuration stochastic.' }
+];
+const TIE_INDEX = (id) => Math.max(0, TIE_POLICIES.findIndex((p) => p.id === id));
 const KINDS = ['birth', 'death', 'decay'];
 
 /* ============================ topologies ============================
@@ -893,7 +976,10 @@ function triTopology() {
   return {
     id: 'tri', name: 'Triangle', gpuKind: 2, variants: 2, parityMode: 2, visPad: 3,
     maskRadius: RING, maskCell: { w: 1, h: TRI_H },
-    caps: { wrap: true, wrapStep: { cols: 1, rows: 2 }, oddCentre: true },
+    // Orientation is (r + c) parity, so an odd count in EITHER direction makes
+    // the seam join two same-orientation cells. Measured with the full mask:
+    // odd rows give 20 asymmetric pairs, odd columns 80.
+    caps: { wrap: true, wrapStep: { cols: 2, rows: 2 }, oddCentre: true },
     maskCells: cells, maskRows: rows,
     centreIndex: cells.findIndex((c) => c.dr === 0 && c.dc === 0),
     maskClass: (m) => (((m.dr + m.dc) & 1) === 0 ? 'up' : 'down'),
@@ -935,7 +1021,7 @@ function triTopology() {
         : [[left, yTop], [mid, yBot], [right, yTop]];    // point down
     },
     patterns: ['adjacent', 'all', 'disc', 'ring', 'cross', 'random'],
-    note: 'Cells alternate point-up and point-down, so the neighbourhood mirrors between them. Wrapping needs an even number of rows so the vertical seam stays symmetric; columns are unrestricted.'
+    note: 'Cells alternate point-up and point-down, so the neighbourhood mirrors between them. Wrapping needs an even number of rows and columns, or the seam joins two cells pointing the same way.'
   };
 }
 
@@ -1028,7 +1114,7 @@ const state = {
   backend: 'auto',
 
   cols: 0, rows: 0,
-  grid: null, next: null, accum: null,
+  grid: null, next: null, accum: null, colour: null, nextColour: null,
   gen: 0, live: 0, spent: 0,
 
   clampMin: 0, clampMax: 100,
@@ -1041,6 +1127,11 @@ const state = {
   threshold: 0,
   resetOnBirth: false,
 
+  adversaries: 1,
+  tiePolicy: 'substitute',
+  palette: ADVERSARY_DEFAULTS.slice(),
+  drawTeam: 0,
+  advShade: 62,
   colours: { liveLo: '#ffffff', liveHi: '#ff9a00', deadLo: '#15151d', deadHi: '#0e2e63' },
   invertLive: false, invertDead: false, decayInfluence: 65,
   liveApply: false,
@@ -1059,7 +1150,10 @@ const rules = {
   decayDir: null,
   threshold: 0,
   resetOnBirth: false,
-  wrap: true
+  wrap: true,
+  adversaries: 1,
+  tiePolicy: 'substitute',
+  clampMin: 0, clampMax: 100
 };
 const pending = new Map();
 
@@ -1138,6 +1232,72 @@ function countClip(grid, rows, cols, r, c, off, v) {
   return k;
 }
 
+/* ============================ adversary colours ============================
+
+   Rules are identical for every colour; only which colour claims a new cell
+   depends on its neighbours. A birth goes to the colour holding a plurality of
+   the live neighbours, and the tie policy decides what happens when two or more
+   draw. Everything here is skipped entirely when there is one colour.        */
+
+const tally = new Int32Array(MAX_ADVERSARIES);
+
+function countColoured(grid, colour, i, rows, cols, r, c, off, v, wrap, fast) {
+  const va = off.variants[v], n = off.n;
+  for (let k = 0; k < MAX_ADVERSARIES; k++) tally[k] = 0;
+  let total = 0;
+  if (fast) {
+    const f = va.flat;
+    for (let j = 0; j < n; j++) {
+      const idx = i + f[j];
+      if (grid[idx]) { total++; tally[colour[idx]]++; }
+    }
+    return total;
+  }
+  const dr = va.dr, dc = va.dc;
+  for (let j = 0; j < n; j++) {
+    let rr = r + dr[j], cc = c + dc[j];
+    if (wrap) {
+      if (rr < 0) rr += rows; else if (rr >= rows) rr -= rows;
+      if (cc < 0) cc += cols; else if (cc >= cols) cc -= cols;
+    } else if (rr < 0 || rr >= rows || cc < 0 || cc >= cols) continue;
+    const idx = rr * cols + cc;
+    if (grid[idx]) { total++; tally[colour[idx]]++; }
+  }
+  return total;
+}
+
+/** Winner of the neighbourhood, or -1 when the policy says a tie blocks birth. */
+function resolveColour(n, policy, rnd, seed) {
+  let best = 0;
+  for (let k = 0; k < n; k++) if (tally[k] > best) best = tally[k];
+  let tied = 0, sum = 0, first = -1;
+  for (let k = 0; k < n; k++) {
+    if (tally[k] === best) { tied++; sum += k; if (first < 0) first = k; }
+  }
+  if (tied === 1) return first;
+  if (policy === 0) return -1;                       // no birth
+  if (policy === 1) return first;                    // lowest tied colour
+  const free = n - tied;
+  if (free <= 0) {
+    // Every colour drew, so there is no bystander to hand the cell to. The
+    // common case is a birth with no live neighbours at all, where each colour
+    // scores zero; always answering "colour 1" would visibly bias spontaneous
+    // births, so vary by position instead — still deterministic for a given grid.
+    if (policy === 3) return (rnd() * n) | 0;
+    return seed % n;
+  }
+  // Index across the colours that did NOT tie, so different pairings hand the
+  // cell to different bystanders rather than always the same one.
+  let pick = policy === 3 ? (rnd() * free) | 0 : sum % free;
+  if (pick >= free) pick = free - 1;
+  for (let k = 0; k < n; k++) {
+    if (tally[k] === best) continue;
+    if (pick === 0) return k;
+    pick--;
+  }
+  return first;
+}
+
 /* ============================ grid lifecycle ============================ */
 const cellCanvas = document.createElement('canvas');
 const cellCtx = cellCanvas.getContext('2d', { alpha: false, willReadFrequently: true });
@@ -1154,6 +1314,8 @@ function allocate(cols, rows) {
   state.grid = new Uint8Array(n);
   state.next = new Uint8Array(n);
   state.accum = new Uint8Array(n);
+  state.colour = new Uint8Array(n);
+  state.nextColour = new Uint8Array(n);
   cellCanvas.width = cols;
   cellCanvas.height = rows;
   cellImage = cellCtx.createImageData(cols, rows);
@@ -1170,8 +1332,12 @@ function gridDims(cellSize) {
 /** How the seam constrains dimensions when wrapping is on. Hexagons need an
     even row count; triangles need both even, because an odd count puts two
     same-orientation cells against each other at the join. */
+/* Reads the committed wrap, never the draft. Dimensions have to match the
+   topology the simulation is actually running, or staging "wrap off" would let
+   you pick a row count that is invalid for the still-wrapping field. Applying a
+   wrap change re-normalises the grid as part of the commit. */
 function wrapStep() {
-  return state.wrap ? topo().caps.wrapStep : { cols: 1, rows: 1 };
+  return rules.wrap ? topo().caps.wrapStep : { cols: 1, rows: 1 };
 }
 function wrapConstrains() {
   const w = wrapStep();
@@ -1213,7 +1379,27 @@ function setTopology(id) {
   brushCache = { key: '', list: [] };
   invalidateOverlay('all');
   refreshSelectionUI();
-  commitRules();
+
+  /* Tiling is structural, like grid size, not a staged rule — so it lands on
+     both the draft and the committed set directly. Only the pending edits that
+     cannot survive the change (masks, and rates whose length just moved) are
+     dropped; a staged threshold or wrap edit is still waiting for Apply. */
+  const KEEP = new Set(['threshold:value', 'wrap:edges', 'clamp:range',
+                        'resetOnBirth:flag', 'birth:adversaries', 'birth:tie']);
+  let dropped = 0;
+  for (const key of [...pending.keys()]) if (!KEEP.has(key)) { pending.delete(key); dropped++; }
+  for (const k of KINDS) {
+    rules.masks[k] = defaultMask(t);
+    rules.offsets[k] = buildOffsets(rules.masks[k], state.cols);
+    rules.rates[k] = state.rates[k].slice();
+    rules.probs[k] = Float32Array.from(rules.rates[k], (v) => v / 100);
+  }
+  rules.decayDir = state.decayDir.slice();
+  gpu.rulesDirty = true;
+  bumpRev();
+  refreshPendingUI();
+  refreshDeterminism();
+  if (dropped) $('topoNote').dataset.dropped = String(dropped);
   syncTopologyUI();
   setGrid(state.cols, state.rows);
   resetView();
@@ -1231,9 +1417,14 @@ function syncTopologyUI() {
   odd.title = forced
     ? 'Unavailable while this tiling wraps: the seam needs the grid rounded to whole cell pairs.'
     : '';
-  $('topoNote').textContent = forced
+  const note = $('topoNote');
+  const dropped = Number(note.dataset.dropped || 0);
+  note.dataset.dropped = '';
+  note.textContent = (forced
     ? t.note + ' Turn wrapping off to size the grid freely.'
-    : (t.note || 'Cells are square, so every neighbour offset is the same on every row.');
+    : (t.note || 'Cells are square, so every neighbour offset is the same on every row.'))
+    + (dropped ? ' ' + dropped + ' pending mask or rate edit' + (dropped === 1 ? '' : 's')
+        + ' could not carry across and were discarded.' : '');
 }
 function centreCell() {
   return { c: (state.cols - 1) >> 1, r: (state.rows - 1) >> 1 };
@@ -1257,13 +1448,16 @@ function setGrid(cols, rows) {
   // resample pass. Reading it back first would rewind to whenever the last
   // snapshot happened to land.
   const carry = gpu.active ? { buf: stateBuf(), cols: state.cols, rows: state.rows } : null;
-  const oldGrid = state.grid, oldAcc = state.accum, oR = state.rows, oC = state.cols;
+  const oldGrid = state.grid, oldAcc = state.accum, oldCol = state.colour;
+  const oR = state.rows, oC = state.cols;
   allocate(d.cols, d.rows);
   if (oldGrid) {
     state.grid = resample(oldGrid, oR, oC, d.rows, d.cols);
     state.accum = resample(oldAcc, oR, oC, d.rows, d.cols);
+    state.colour = resample(oldCol, oR, oC, d.rows, d.cols);
   }
   recount();
+  bumpRev();
   clampView();
   reflectDims(d);
   if (state.selection && (state.selection.c1 >= d.cols || state.selection.r1 >= d.rows)) {
@@ -1302,13 +1496,17 @@ function recount() {
 }
 function fillRandom() {
   const t = state.density / 100;
-  const g = state.grid;
+  const g = state.grid, col = state.colour;
+  const teams = rules.adversaries;
   let live = 0;
   for (let i = 0; i < g.length; i++) {
     const v = Math.random() < t ? 1 : 0;
-    g[i] = v; live += v;
+    g[i] = v;
+    col[i] = v && teams > 1 ? (Math.random() * teams) | 0 : 0;
+    live += v;
   }
   state.accum.fill(0);
+  bumpRev();
   state.live = live;
   state.spent = 0;
   state.gen = 0;
@@ -1321,6 +1519,8 @@ function clearGrid() {
   state.grid.fill(0);
   state.next.fill(0);
   state.accum.fill(0);
+  state.colour.fill(0);
+  bumpRev();
   state.live = 0; state.spent = 0; state.gen = 0; state.skipped = 0;
   state.selection = null;
   shaping = null;
@@ -1373,8 +1573,11 @@ function step() {
   const bP = rules.probs.birth, dP = rules.probs.death, cP = rules.probs.decay;
   const thr = rules.threshold, decayOn = thr > 0, dir = rules.decayDir;
   const resetOnBirth = rules.resetOnBirth;
-  const slow = rules.wrap ? countWrap : countClip;
+  const wrap = rules.wrap;
+  const slow = wrap ? countWrap : countClip;
   const rnd = Math.random;
+  const col = state.colour, nextCol = state.nextColour;
+  const teams = rules.adversaries, tiePolicy = TIE_INDEX(rules.tiePolicy);
 
   const padR = Math.max(bO.padR, dO.padR, decayOn ? cO.padR : 0);
   const padC = Math.max(bO.padC, dO.padC, decayOn ? cO.padC : 0);
@@ -1401,24 +1604,35 @@ function step() {
         if (acc[i] >= thr) { forcedDead = true; spent++; }
       }
 
-      let out = 0;
+      let out = 0, tint = 0;
       if (!forcedDead) {
         if (grid[i] === 1) {
           const n = fast ? countFlat(grid, i, dO, v) : slow(grid, rows, cols, r, c, dO, v);
           out = rnd() < dP[n] ? 0 : 1;
+          tint = col[i];
         } else {
-          const n = fast ? countFlat(grid, i, bO, v) : slow(grid, rows, cols, r, c, bO, v);
+          const n = teams > 1
+            ? countColoured(grid, col, i, rows, cols, r, c, bO, v, wrap, fast)
+            : (fast ? countFlat(grid, i, bO, v) : slow(grid, rows, cols, r, c, bO, v));
           out = rnd() < bP[n] ? 1 : 0;
+          if (out === 1 && teams > 1) {
+            const won = resolveColour(teams, tiePolicy, rnd, i);
+            if (won < 0) out = 0; else tint = won;
+          }
           if (out === 1 && resetOnBirth) acc[i] = 0;
         }
       }
       next[i] = out;
+      nextCol[i] = out ? tint : 0;
       live += out;
     }
   }
 
+  gridRev++;
   state.grid = next;
   state.next = grid;
+  state.colour = nextCol;
+  state.nextColour = col;
   state.live = live;
   state.spent = spent;
   state.gen++;
@@ -1467,7 +1681,48 @@ function singleStep() {
   draw();
 }
 
-/* ============================ rendering ============================ */
+/* ============================ rendering ============================
+
+   The odds gradient needs each visible cell's transition rate, which means a
+   neighbour count per cell — the same work the simulation just did. Recomputing
+   it on every draw was pure waste: panning, zooming or hovering while paused
+   re-derived the entire visible field for no change at all. The metric is now
+   cached against a revision counter and the box it was computed for, so it is
+   rebuilt once per generation or edit instead of once per frame.             */
+let gridRev = 0, metricRev = -1, metricArr = null;
+let metricBox = { c0: 0, r0: 0, c1: 0, r1: 0 };
+function bumpRev() { gridRev++; }
+function metricCovers(c0, r0, c1, r1) {
+  return metricRev === gridRev && metricArr && metricArr.length === state.grid.length
+    && metricBox.c0 <= c0 && metricBox.r0 <= r0 && metricBox.c1 >= c1 && metricBox.r1 >= r1;
+}
+function buildMetric(c0, r0, c1, r1) {
+  const cols = state.cols, rows = state.rows, grid = state.grid;
+  if (!metricArr || metricArr.length !== grid.length) metricArr = new Uint8Array(grid.length);
+  const bR = rules.rates.birth, dR = rules.rates.death;
+  const bO = rules.offsets.birth, dO = rules.offsets.death;
+  const slow = rules.wrap ? countWrap : countClip;
+  const padR = Math.max(bO.padR, dO.padR), padC = Math.max(bO.padC, dO.padC);
+  const pmode = state.topo.parityMode;
+  for (let r = r0; r < r1; r++) {
+    const rowInside = r >= padR && r < rows - padR;
+    const rowPar = pmode === 0 ? 0 : (r & 1);
+    const base = r * cols;
+    for (let c = c0; c < c1; c++) {
+      const i = base + c;
+      const v = pmode === 2 ? ((rowPar + c) & 1) : rowPar;
+      const alive = grid[i] === 1;
+      const off = alive ? dO : bO;
+      const n = (rowInside && c >= padC && c < cols - padC)
+        ? countFlat(grid, i, off, v)
+        : slow(grid, rows, cols, r, c, off, v);
+      metricArr[i] = (alive ? dR[n] : bR[n]) | 0;
+    }
+  }
+  metricRev = gridRev;
+  metricBox = { c0, r0, c1, r1 };
+}
+
 const COLOUR_MODES = ['rates', 'decay', 'combined'];
 const DQ = 21;                                   // depletion quantisation for the 2D LUT
 
@@ -1493,32 +1748,50 @@ function gradientEnds(which) {
   return flip ? [hexToRgb(hi), hexToRgb(lo)] : [hexToRgb(lo), hexToRgb(hi)];
 }
 
-const liveLUT = new Uint32Array(101);
+// One live ramp per adversary: hue is the team, the ramp still reads the death
+// chance, so a coloured run stays as legible as a monochrome one.
+const liveLUT = new Uint32Array(MAX_ADVERSARIES * 101);
 const deadLUT = new Uint32Array(101);
 // Combined mode: hue and chroma come from the transition gradient, lightness is
 // scaled by how depleted the cell is. Two extra colour pickers would say the
 // same thing less clearly, so the existing four drive both channels.
-const liveLUT2 = new Uint32Array(101 * DQ);
+const liveLUT2 = new Uint32Array(MAX_ADVERSARIES * 101 * DQ);
 const deadLUT2 = new Uint32Array(101 * DQ);
 
 function buildLUTs() {
   const [lo1, hi1] = gradientEnds('live');
   const [lo2, hi2] = gradientEnds('dead');
   const infl = state.decayInfluence / 100;
+  const teams = state.adversaries;
   for (let i = 0; i <= 100; i++) {
     const t = i / 100;
-    const lr = Math.round(lo1[0] + (hi1[0] - lo1[0]) * t);
-    const lg = Math.round(lo1[1] + (hi1[1] - lo1[1]) * t);
-    const lb = Math.round(lo1[2] + (hi1[2] - lo1[2]) * t);
     const dr = Math.round(lo2[0] + (hi2[0] - lo2[0]) * t);
     const dg = Math.round(lo2[1] + (hi2[1] - lo2[1]) * t);
     const db = Math.round(lo2[2] + (hi2[2] - lo2[2]) * t);
-    liveLUT[i] = packRGB(lr, lg, lb);
     deadLUT[i] = packRGB(dr, dg, db);
     for (let q = 0; q < DQ; q++) {
       const k = 1 - (q / (DQ - 1)) * infl;
-      liveLUT2[i * DQ + q] = packRGB(Math.round(lr * k), Math.round(lg * k), Math.round(lb * k));
       deadLUT2[i * DQ + q] = packRGB(Math.round(dr * k), Math.round(dg * k), Math.round(db * k));
+    }
+    const dim = 1 - state.advShade / 100;
+    for (let m = 0; m < MAX_ADVERSARIES; m++) {
+      let a = lo1, b = hi1;
+      if (teams > 1) {
+        // The ramp runs from full team colour to a faded one, because the low
+        // end of the ramp is a *safe* cell and the high end is one about to
+        // die. Brightest-means-doomed read backwards.
+        const base = hexToRgb(state.palette[m % state.palette.length]);
+        a = base;
+        b = [base[0] * dim, base[1] * dim, base[2] * dim];
+      }
+      const lr = Math.round(a[0] + (b[0] - a[0]) * t);
+      const lg = Math.round(a[1] + (b[1] - a[1]) * t);
+      const lb = Math.round(a[2] + (b[2] - a[2]) * t);
+      liveLUT[m * 101 + i] = packRGB(lr, lg, lb);
+      for (let q = 0; q < DQ; q++) {
+        const k = 1 - (q / (DQ - 1)) * infl;
+        liveLUT2[(m * 101 + i) * DQ + q] = packRGB(Math.round(lr * k), Math.round(lg * k), Math.round(lb * k));
+      }
     }
   }
 }
@@ -1526,7 +1799,8 @@ function buildLUTs() {
 /** Paint only the cells inside the current view into the 1px-per-cell buffer. */
 function paintCells(c0, r0, c1, r1) {
   const cols = state.cols, rows = state.rows;
-  const grid = state.grid, acc = state.accum, px = cellPix;
+  const grid = state.grid, acc = state.accum, colArr = state.colour, px = cellPix;
+  const teams = rules.adversaries;
   const mode = state.colourMode;
   const wantRates = mode !== 'decay';
   const wantDecay = mode !== 'rates';
@@ -1536,30 +1810,21 @@ function paintCells(c0, r0, c1, r1) {
   const slow = rules.wrap ? countWrap : countClip;
   const padR = Math.max(bO.padR, dO.padR), padC = Math.max(bO.padC, dO.padC);
 
-  const pmode = state.topo.parityMode;
+  if (wantRates && !metricCovers(c0, r0, c1, r1)) buildMetric(c0, r0, c1, r1);
   for (let r = r0; r < r1; r++) {
-    const rowInside = r >= padR && r < rows - padR;
-    const rowPar = pmode === 0 ? 0 : (r & 1);
     const base = r * cols;
     for (let c = c0; c < c1; c++) {
       const i = base + c;
-      const v = pmode === 2 ? ((rowPar + c) & 1) : rowPar;
       const alive = grid[i] === 1;
-      let t = 0;
-      if (wantRates) {
-        const off = alive ? dO : bO;
-        const n = (rowInside && c >= padC && c < cols - padC)
-          ? countFlat(grid, i, off, v)
-          : slow(grid, rows, cols, r, c, off, v);
-        t = (alive ? dR[n] : bR[n]) | 0;
-      }
+      const team = alive && teams > 1 ? colArr[i] : 0;
+      const t = wantRates ? metricArr[i] : 0;
       const d = wantDecay && thr > 0 ? clamp(acc[i] / thr, 0, 1) : 0;
       if (mode === 'combined') {
         const q = Math.round(d * (DQ - 1));
-        px[i] = alive ? liveLUT2[t * DQ + q] : deadLUT2[t * DQ + q];
+        px[i] = alive ? liveLUT2[(team * 101 + t) * DQ + q] : deadLUT2[t * DQ + q];
       } else {
         const k = mode === 'decay' ? Math.round(d * 100) : t;
-        px[i] = alive ? liveLUT[k] : deadLUT[k];
+        px[i] = alive ? liveLUT[team * 101 + k] : deadLUT[k];
       }
     }
   }
@@ -1722,6 +1987,8 @@ struct Params {
   offC : vec4<u32>,
   vis : vec4<u32>,
   offD : vec4<u32>,          // variant-1 offset bases per kind, plus topology id
+  misc : vec4<u32>,          // adversary count, tie policy, reserved
+  pal : array<vec4<f32>, 8>, // adversary colours
 };
 const HEX_V : f32 = 0.86602540378;
 const HEX_H : f32 = 1.15470053838;
@@ -1778,6 +2045,64 @@ fn nextRand() -> f32 {
   return f32(rng >> 8u) * 5.9604644775390625e-8;
 }
 ` + P_COUNT + `
+var<private> teamTally : array<u32, 8>;
+fn countColoured(r : i32, c : i32, base0 : u32, base1 : u32, n : u32, ncol : u32) -> u32 {
+  for (var k = 0u; k < 8u; k = k + 1u) { teamTally[k] = 0u; }
+  let rows = i32(P.dims.y);
+  let wide = i32(P.dims.x);
+  let base = select(base0, base1, parityOf(r, c) == 1);
+  var total = 0u;
+  for (var i : u32 = 0u; i < n; i = i + 1u) {
+    var rr = r + offs[base + i * 2u];
+    var cc = c + offs[base + i * 2u + 1u];
+    if (P.dims.z == 1u) {
+      if (rr < 0) { rr = rr + rows; } else if (rr >= rows) { rr = rr - rows; }
+      if (cc < 0) { cc = cc + wide; } else if (cc >= wide) { cc = cc - wide; }
+    } else if (rr < 0 || rr >= rows || cc < 0 || cc >= wide) {
+      continue;
+    }
+    let cell = src[u32(rr * wide + cc)];
+    if ((cell & 1u) == 1u) {
+      total = total + 1u;
+      let cid = (cell >> 1u) & 15u;
+      if (cid < ncol) { teamTally[cid] = teamTally[cid] + 1u; }
+    }
+  }
+  return total;
+}
+/** Mirrors resolveColour on the CPU: -1 means the tie blocks the birth. */
+fn resolveColour(ncol : u32, policy : u32, seed : u32) -> i32 {
+  var best = 0u;
+  for (var k = 0u; k < ncol; k = k + 1u) { best = max(best, teamTally[k]); }
+  var tied = 0u;
+  var sum = 0u;
+  var first = -1;
+  for (var k = 0u; k < ncol; k = k + 1u) {
+    if (teamTally[k] == best) {
+      tied = tied + 1u;
+      sum = sum + k;
+      if (first < 0) { first = i32(k); }
+    }
+  }
+  if (tied == 1u) { return first; }
+  if (policy == 0u) { return -1; }
+  if (policy == 1u) { return first; }
+  if (tied >= ncol) {
+    // No bystander available; vary by position rather than always colour 1.
+    if (policy == 3u) { return i32(min(u32(nextRand() * f32(ncol)), ncol - 1u)); }
+    return i32(seed % ncol);
+  }
+  let free = ncol - tied;
+  var pick : u32;
+  if (policy == 3u) { pick = min(u32(nextRand() * f32(free)), free - 1u); }
+  else { pick = sum % free; }
+  for (var k = 0u; k < ncol; k = k + 1u) {
+    if (teamTally[k] == best) { continue; }
+    if (pick == 0u) { return i32(k); }
+    pick = pick - 1u;
+  }
+  return first;
+}
 @compute @workgroup_size(8, 8)
 fn stepMain(@builtin(global_invocation_id) gid : vec3<u32>) {
   let c = gid.x;
@@ -1803,19 +2128,27 @@ fn stepMain(@builtin(global_invocation_id) gid : vec3<u32>) {
     if (acc >= P.dims.w) { forced = true; }
   }
   var out : u32 = 0u;
+  var tint : u32 = 0u;
+  let teams = P.misc.x;
   if (!forced) {
     if (alive) {
       let n = countAt(i32(r), i32(c), P.offA.z, P.offD.y, P.offA.w);
-      if (nextRand() >= rates[P.offB.w + n]) { out = 1u; }
+      if (nextRand() >= rates[P.offB.w + n]) { out = 1u; tint = (cell >> 1u) & 15u; }
     } else {
-      let n = countAt(i32(r), i32(c), P.offA.x, P.offD.x, P.offA.y);
+      var n : u32;
+      if (teams > 1u) { n = countColoured(i32(r), i32(c), P.offA.x, P.offD.x, P.offA.y, teams); }
+      else { n = countAt(i32(r), i32(c), P.offA.x, P.offD.x, P.offA.y); }
       if (nextRand() < rates[P.offB.z + n]) {
         out = 1u;
-        if (P.flags.x == 1u) { acc = 0u; }
+        if (teams > 1u) {
+          let won = resolveColour(teams, P.misc.y, idx);
+          if (won < 0) { out = 0u; } else { tint = u32(won); }
+        }
+        if (out == 1u && P.flags.x == 1u) { acc = 0u; }
       }
     }
   }
-  dst[idx] = out | (acc << 8u);
+  dst[idx] = out | (tint << 1u) | (acc << 8u);
   if (out == 1u) { atomicAdd(&tally[0], 1u); }
   if (forced) { atomicAdd(&tally[1], 1u); }
 }
@@ -1853,8 +2186,14 @@ fn shadeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
     d = clamp(f32((cell >> 8u) & 255u) / f32(P.dims.w), 0.0, 1.0);
   }
   if (P.flags.w == 1u) { t = d; }
-  let lo = select(P.deadLo, P.liveLo, alive);
-  let hi = select(P.deadHi, P.liveHi, alive);
+  var lo = select(P.deadLo, P.liveLo, alive);
+  var hi = select(P.deadHi, P.liveHi, alive);
+  if (alive && P.misc.x > 1u) {
+    // Full colour at the safe end of the ramp, faded at the doomed end.
+    let base = P.pal[(cell >> 1u) & 7u];
+    lo = base;
+    hi = base * (1.0 - f32(P.misc.z) / 100.0);
+  }
   var col = mix(lo, hi, t);
   if (P.flags.w == 2u) {
     col = col * (1.0 - d * (f32(P.offC.w) / 100.0));
@@ -1966,7 +2305,7 @@ const gpu = {
   device: null, ctx: null, format: null,
   stepPipe: null, shadePipe: null, renderPipe: null, resamplePipe: null,
   buf: {}, bg: {}, bases: {}, cells: 0, cur: 0,
-  params: new ArrayBuffer(208), pf: null, pu: null,
+  params: new ArrayBuffer(352), pf: null, pu: null,
   seedCell: new Uint32Array(1), seed: 1,
   upload: null, mirror: null, mirrorGen: -1, oldDims: null, rowScratch: new Uint32Array(MAX_COLS),
   rulesDirty: true, hold: false, gen: 0, retries: 0, tallyValid: false, recountPending: false,
@@ -1992,13 +2331,30 @@ async function initGPU() {
     gpu.ctx = gpuCanvas.getContext('webgpu');
     gpu.ctx.configure({ device, format: gpu.format, alphaMode: 'opaque' });
 
-    const comp = (code, entryPoint) => device.createComputePipeline({
-      layout: 'auto', compute: { module: device.createShaderModule({ code }), entryPoint }
+    /* WebGPU reports shader compilation failures asynchronously rather than
+       throwing, so a bad shader silently yields an invalid pipeline and the
+       first visible complaint is an unrelated "invalid BindGroupLayout" from
+       createBindGroup. Ask each module for its compilation log up front and
+       report the actual file, line and message instead. */
+    const compile = async (code, label) => {
+      const mod = device.createShaderModule({ code, label });
+      if (mod.getCompilationInfo) {
+        const info = await mod.getCompilationInfo();
+        const errs = (info.messages || []).filter((m) => m.type === 'error');
+        if (errs.length) {
+          const e = errs[0];
+          throw new Error(label + ' shader, line ' + e.lineNum + ': ' + e.message);
+        }
+      }
+      return mod;
+    };
+    const comp = async (code, label, entryPoint) => device.createComputePipeline({
+      layout: 'auto', compute: { module: await compile(code, label), entryPoint }
     });
-    gpu.stepPipe = comp(STEP_WGSL, 'stepMain');
-    gpu.shadePipe = comp(SHADE_WGSL, 'shadeMain');
-    gpu.resamplePipe = comp(RESAMPLE_WGSL, 'resampleMain');
-    const rm = device.createShaderModule({ code: RENDER_WGSL });
+    gpu.stepPipe = await comp(STEP_WGSL, 'step', 'stepMain');
+    gpu.shadePipe = await comp(SHADE_WGSL, 'shade', 'shadeMain');
+    gpu.resamplePipe = await comp(RESAMPLE_WGSL, 'resample', 'resampleMain');
+    const rm = await compile(RENDER_WGSL, 'render');
     gpu.renderPipe = device.createRenderPipeline({
       layout: 'auto',
       vertex: { module: rm, entryPoint: 'vsMain' },
@@ -2156,6 +2512,15 @@ function writeParams(vis) {
   pu[44] = vis.c0; pu[45] = vis.r0; pu[46] = vis.w; pu[47] = vis.h;
   pu[48] = gpu.bases.birthOff1; pu[49] = gpu.bases.deathOff1;
   pu[50] = gpu.bases.decayOff1; pu[51] = topo().gpuKind;
+  pu[52] = rules.adversaries; pu[53] = TIE_INDEX(rules.tiePolicy);
+  pu[54] = state.advShade; pu[55] = 0;
+  for (let m = 0; m < 8; m++) {
+    const c = hexToRgb(state.palette[m % state.palette.length]);
+    pf[56 + m * 4] = c[0] / 255;
+    pf[57 + m * 4] = c[1] / 255;
+    pf[58 + m * 4] = c[2] / 255;
+    pf[59 + m * 4] = 1;
+  }
   gpu.device.queue.writeBuffer(gpu.buf.params, 0, gpu.params);
 }
 
@@ -2299,18 +2664,63 @@ function gpuReadback() {
   } catch (err) { recoverGPU(err.message || String(err)); }
 }
 
+/** Hold the simulation and read the device buffer back for real, rather than
+    settling for the last asynchronous snapshot. gpuSyncDown alone is only ever
+    approximate — bounded to a generation or two, which is fine for deciding a
+    brush stroke, but not for saving a file, copying a region, or any operation
+    that pushes the WHOLE buffer back afterwards, where a stale mirror would
+    quietly rewind live state and colours. Callers must clear gpu.hold. */
+function gpuReadExact() {
+  if (!gpu.active || !gpu.device || !gpu.cells) return Promise.resolve(false);
+  const d = gpu.device;
+  gpu.hold = true;
+  return new Promise((resolve) => {
+    let buf = null;
+    try {
+      buf = d.createBuffer({ size: gpu.cells * 4, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+      const enc = d.createCommandEncoder();
+      enc.copyBufferToBuffer(stateBuf(), 0, buf, 0, gpu.cells * 4);
+      d.queue.submit([enc.finish()]);
+      const atGen = state.gen;
+      buf.mapAsync(GPUMapMode.READ).then(() => {
+        try {
+          const data = new Uint32Array(buf.getMappedRange());
+          if (gpu.mirror && data.length === gpu.mirror.length) {
+            gpu.mirror.set(data);
+            gpu.mirrorGen = atGen;
+          }
+        } finally {
+          try { buf.unmap(); } catch (e) { /* device may be gone */ }
+        }
+        gpuSyncDown();
+        try { buf.destroy(); } catch (e) { /* already gone */ }
+        resolve(true);
+      }).catch(() => { try { buf.destroy(); } catch (e) {} resolve(false); });
+    } catch (err) {
+      if (buf) { try { buf.destroy(); } catch (e) {} }
+      resolve(false);
+    }
+  });
+}
+
 /** Unpack the last GPU snapshot into the CPU arrays so editing can proceed. */
 function gpuSyncDown() {
   if (!gpu.mirror || gpu.mirror.length !== state.grid.length) return;
-  const m = gpu.mirror, g = state.grid, a = state.accum;
-  for (let i = 0; i < m.length; i++) { const v = m[i]; g[i] = v & 1; a[i] = (v >>> 8) & 255; }
+  gridRev++;
+  const m = gpu.mirror, g = state.grid, a = state.accum, c = state.colour;
+  for (let i = 0; i < m.length; i++) {
+    const v = m[i];
+    g[i] = v & CELL_ALIVE;
+    c[i] = (v >>> CELL_COLOUR_SHIFT) & CELL_COLOUR_BITS;
+    a[i] = (v >>> CELL_ACC_SHIFT) & CELL_ACC_BITS;
+  }
   recount();
 }
 /** Push the whole CPU state up. */
 function gpuPush() {
   if (!gpu.device || !gpu.buf.a || !gpu.upload) return;
-  const buf = gpu.upload, g = state.grid, a = state.accum;
-  for (let i = 0; i < buf.length; i++) buf[i] = g[i] | (a[i] << 8);
+  const buf = gpu.upload, g = state.grid, a = state.accum, c = state.colour;
+  for (let i = 0; i < buf.length; i++) buf[i] = packCell(g[i], c[i], a[i]);
   gpu.device.queue.writeBuffer(stateBuf(), 0, buf);
   gpu.mirror.set(buf);
   gpu.mirrorGen = state.gen;
@@ -2319,11 +2729,11 @@ function gpuPush() {
 function gpuPushRect(c0, r0, c1, r1) {
   if (!gpu.active || !gpu.device) return;
   const cols = state.cols, w = c1 - c0 + 1;
-  const g = state.grid, a = state.accum, buf = stateBuf();
+  const g = state.grid, a = state.accum, col = state.colour, buf = stateBuf();
   for (let r = r0; r <= r1; r++) {
     const base = r * cols + c0;
     const row = gpu.rowScratch.subarray(0, w);
-    for (let i = 0; i < w; i++) { row[i] = g[base + i] | (a[base + i] << 8); }
+    for (let i = 0; i < w; i++) { row[i] = packCell(g[base + i], col[base + i], a[base + i]); }
     gpu.device.queue.writeBuffer(buf, base * 4, row);
     if (gpu.mirror) gpu.mirror.set(row, base);
   }
@@ -2373,20 +2783,25 @@ function retryGPU() {
   gpu.retries = 0;
   gpu.fatal = false;
   gpu.error = '';
-  if (gpu.device && gpu.stepPipe) {
-    gpu.ready = true;
-    if (state.backend !== 'cpu') activateGPU();
-    refreshEngineUI();
-  } else {
-    initGPU();
-  }
+  // Always rebuild from scratch: if the last failure was a shader that would
+  // not compile, the cached pipelines are invalid and reusing them just
+  // reproduces the same error.
+  gpu.device = null;
+  gpu.stepPipe = gpu.shadePipe = gpu.resamplePipe = gpu.renderPipe = null;
+  gpu.buf = {};
+  gpu.reads = { stats: { buf: null, busy: false, size: 0 }, state: { buf: null, busy: false, size: 0 } };
+  refreshEngineUI();
+  initGPU();
 }
-function setBackend(mode) {
+async function setBackend(mode) {
   state.backend = mode;
   for (const b of document.querySelectorAll('[data-engine]')) {
     b.setAttribute('aria-selected', String(b.dataset.engine === mode));
   }
-  if (mode === 'cpu') deactivateGPU();
+  if (mode === 'cpu') {
+    if (gpu.active) { await gpuReadExact(); gpu.hold = false; }
+    deactivateGPU();
+  }
   else if (gpu.ready) activateGPU();
   refreshEngineUI();
 }
@@ -2434,11 +2849,22 @@ function commitRules() {
   rules.threshold = state.threshold;
   rules.resetOnBirth = state.resetOnBirth;
   rules.wrap = state.wrap;
+  rules.adversaries = state.adversaries;
+  rules.tiePolicy = state.tiePolicy;
+  rules.clampMin = state.clampMin;
+  rules.clampMax = state.clampMax;
   gpu.rulesDirty = true;
   pending.clear();
   refreshPendingUI();
   refreshDeterminism();
   if (!gpu.active) recount();
+  bumpRev();
+  // A wrap change can invalidate the current dimensions, so re-normalise now
+  // that the committed value has moved.
+  if (typeof syncTopologyUI === 'function' && state.grid) {
+    syncTopologyUI();
+    setGrid(state.cols, state.rows);
+  }
   updateStats();
   scheduleDraw();
 }
@@ -2454,6 +2880,14 @@ function revertRules() {
   state.threshold = rules.threshold;
   state.resetOnBirth = rules.resetOnBirth;
   state.wrap = rules.wrap;
+  state.adversaries = rules.adversaries;
+  state.tiePolicy = rules.tiePolicy;
+  state.clampMin = rules.clampMin;
+  state.clampMax = rules.clampMax;
+  ui.clampMin.set(state.clampMin);
+  ui.clampMax.set(state.clampMax);
+  ui.adversaries.set(state.adversaries);
+  syncAdversaryUI();
   ui.threshold.set(state.threshold);
   $('resetBirth').checked = state.resetOnBirth;
   $('wrapEdges').checked = state.wrap;
@@ -2486,6 +2920,7 @@ function fractionalRates() {
   scan(rules.rates.birth);
   scan(rules.rates.death);
   if (rules.threshold > 0) scan(rules.rates.decay);
+  if (rules.adversaries > 1 && rules.tiePolicy === 'random') n++;
   return n;
 }
 function refreshDeterminism() {
@@ -3059,7 +3494,7 @@ function drawOverlay() {
   } else if (hover && state.tool === 'brush' && state.brush > 1) {
     const key = hover.c + ':' + hover.r + ':' + state.brush + ':' + topo().id;
     if (key !== brushKey) { brushKey = key; brushPath = outlinePath(brushCells(hover.c, hover.r)); }
-    trace(brushPath, 'rgba(255,255,255,.95)');
+    trace(brushPath, rules.adversaries > 1 ? state.palette[state.drawTeam] : 'rgba(255,255,255,.95)');
   }
   octx.restore();
 }
@@ -3211,15 +3646,15 @@ function refreshSelectionUI() {
     : (clipboard ? clipboard.cells.length + ' copied' : 'none');
 }
 let clipboard = null;
-function copySelection() {
+async function copySelection() {
   const s = state.selection;
   if (!s) return;
-  if (gpu.active) gpuSyncDown();
+  if (gpu.active) { await gpuReadExact(); gpu.hold = false; }
   const cells = [];
   for (let r = s.r0; r <= s.r1; r++) {
     for (let c = s.c0; c <= s.c1; c++) {
       const i = r * state.cols + c;
-      cells.push([c - s.c0, r - s.r0, state.grid[i], state.accum[i]]);
+      cells.push([c - s.c0, r - s.r0, state.grid[i], state.accum[i], state.colour[i]]);
     }
   }
   // Orientation matters on hexagons and triangles: a patch only keeps its shape
@@ -3240,12 +3675,13 @@ function pasteClipboard() {
   }
   if (gpu.active) { gpu.hold = true; gpuSyncDown(); }
   let delta = 0, c0 = Infinity, r0 = Infinity, c1 = -Infinity, r1 = -Infinity;
-  for (const [dc, dr, alive, acc] of clipboard.cells) {
+  for (const [dc, dr, alive, acc, team] of clipboard.cells) {
     const c = ac + dc, r = ar + dr;
     if (c < 0 || c >= state.cols || r < 0 || r >= state.rows) continue;
     const i = r * state.cols + c;
     if (state.grid[i] !== alive) { delta += alive ? 1 : -1; state.grid[i] = alive; }
     state.accum[i] = acc;
+    state.colour[i] = alive ? (team || 0) : 0;
     if (c < c0) c0 = c;
     if (c > c1) c1 = c;
     if (r < r0) r0 = r;
@@ -3279,10 +3715,16 @@ function drawMinimap(force) {
     miniImg = miniCtx.createImageData(state.cols, state.rows);
     miniPix = new Uint32Array(miniImg.data.buffer);
   }
-  const live = liveLUT[100], dead = deadLUT[0];
+  const dead = deadLUT[0], teams = rules.adversaries, colArr = state.colour;
   const mirror = gpu.active && gpu.mirror && gpu.mirror.length === state.grid.length ? gpu.mirror : null;
   for (let i = 0; i < miniPix.length; i++) {
-    miniPix[i] = (mirror ? (mirror[i] & 1) : state.grid[i]) ? live : dead;
+    const word = mirror ? mirror[i] : 0;
+    const alive = mirror ? (word & CELL_ALIVE) : state.grid[i];
+    if (!alive) { miniPix[i] = dead; continue; }
+    const team = teams > 1
+      ? (mirror ? ((word >>> CELL_COLOUR_SHIFT) & CELL_COLOUR_BITS) : colArr[i])
+      : 0;
+    miniPix[i] = liveLUT[(team % MAX_ADVERSARIES) * 101 + 100];
   }
   miniCtx.putImageData(miniImg, 0, 0);
 
@@ -3335,9 +3777,10 @@ function cellInfo(c, r) {
   const i = r * state.cols + c;
   if (gpu.active && gpu.mirror && gpu.mirror.length === state.grid.length) {
     const v = gpu.mirror[i];
-    return { alive: (v & 1) === 1, acc: (v >>> 8) & 255 };
+    return { alive: (v & CELL_ALIVE) === 1, acc: (v >>> CELL_ACC_SHIFT) & CELL_ACC_BITS,
+             team: (v >>> CELL_COLOUR_SHIFT) & CELL_COLOUR_BITS };
   }
-  return { alive: state.grid[i] === 1, acc: state.accum[i] };
+  return { alive: state.grid[i] === 1, acc: state.accum[i], team: state.colour[i] };
 }
 function clearHover() {
   hover = null;
@@ -3391,6 +3834,7 @@ function drawReticle() {
   }
   const show = (n) => (state.centreOrigin && n > 0 ? '+' + n : String(n));
   let text = show(x) + ', ' + show(y) + ' <i>' + (info.alive ? 'live' : 'dead') + '</i>';
+  if (info.alive && rules.adversaries > 1) text += ' <u>#' + ((info.team | 0) + 1) + '</u>';
   if (rules.threshold > 0) text += ' <b>' + info.acc + '/' + rules.threshold + '</b>';
   lab.innerHTML = text;
   lab.hidden = false;
@@ -3432,9 +3876,11 @@ function commitShape() {
     return;
   }
   let delta = 0;
+  const col = state.colour, team = sh.value ? sh.team : 0;
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
     if (g[i] !== sh.value) { g[i] = sh.value; delta += sh.value ? 1 : -1; }
+    col[i] = team;
   }
   if (c1 >= c0) noteRect(c0, r0, c1, r1);
   commitPaint(delta);
@@ -3470,12 +3916,14 @@ function noteRect(c0, r0, c1, r1) {
 function paintBlock(c, r, value) {
   const cells = brushCells(c, r);
   if (!cells.length) return 0;
-  const cols = state.cols, g = state.grid;
+  const cols = state.cols, g = state.grid, col = state.colour;
+  const team = value ? state.drawTeam : 0;
   let delta = 0, c0 = Infinity, r0 = Infinity, c1 = -Infinity, r1 = -Infinity;
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
     const cc = i % cols, rr = (i / cols) | 0;
     if (g[i] !== value) { g[i] = value; delta += value ? 1 : -1; }
+    col[i] = team;
     if (cc < c0) c0 = cc;
     if (cc > c1) c1 = cc;
     if (rr < r0) r0 = rr;
@@ -3495,6 +3943,7 @@ function paintLine(a, b, value) {
   return delta;
 }
 function commitPaint(delta) {
+  bumpRev();
   if (paintRect && gpu.active) gpuPushRect(paintRect.c0, paintRect.r0, paintRect.c1, paintRect.r1);
   paintRect = null;
   state.live += delta;
@@ -3562,10 +4011,14 @@ function setupPointer(el) {
     if (gpu.active) { gpu.hold = true; gpuSyncDown(); }
 
     const cell = cellAt(e.clientX, e.clientY);
-    strokeValue = state.grid[cell.r * state.cols + cell.c] === 1 ? 0 : 1;
+    const at = cell.r * state.cols + cell.c;
+    // With adversaries in play, clicking a cell that belongs to another colour
+    // converts it; clicking one of your own still erases.
+    strokeValue = state.grid[at] !== 1 ? 1
+      : (rules.adversaries > 1 && state.colour[at] !== state.drawTeam) ? 1 : 0;
     if (state.tool !== 'brush') {
       const w = worldAt(e.clientX, e.clientY);
-      shaping = { tool: state.tool, a: w, b: w, value: strokeValue, cells: null };
+      shaping = { tool: state.tool, a: w, b: w, value: strokeValue, team: state.drawTeam, cells: null };
       invalidateOverlay('shape');
       drawOverlay();
       return;
@@ -3635,6 +4088,299 @@ function setupPointer(el) {
   el.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && !painting && !panning) clearHover(); });
 }
 
+/* ============================ save / load ============================
+
+   A named, individually versioned section per concern. A later phase adds a
+   section rather than bumping the whole file, and an older file simply arrives
+   without one — so loading is "apply what you recognise, leave the rest alone".
+   Settings stay readable JSON; only the grid is packed, as varint run-length
+   over the canonical cell word and then base64.                              */
+
+const SAVE_FORMAT = 'probabilistic-ca';
+const SAVE_VERSION = 1;
+
+function encodeVarint(bytes, v) {
+  let n = v >>> 0;
+  while (n >= 0x80) { bytes.push((n & 0x7F) | 0x80); n >>>= 7; }
+  bytes.push(n);
+}
+function encodeRuns(words) {
+  const bytes = [];
+  let i = 0;
+  while (i < words.length) {
+    const v = words[i];
+    let run = 1;
+    while (i + run < words.length && words[i + run] === v) run++;
+    encodeVarint(bytes, v);
+    encodeVarint(bytes, run);
+    i += run;
+  }
+  return bytes;
+}
+/** Strict: a short or damaged stream throws rather than leaving the rest of the
+    world silently blank, which would look like a valid but empty save. */
+function decodeRuns(bytes, count) {
+  const out = new Uint32Array(count);
+  let p = 0, at = 0;
+  const readVarint = () => {
+    let n = 0, shift = 0, b;
+    do {
+      if (p >= bytes.length) throw new Error('grid data ends mid-number');
+      if (shift > 28) throw new Error('grid data has an oversized run');
+      b = bytes[p++];
+      n |= (b & 0x7F) << shift;
+      shift += 7;
+    } while (b & 0x80);
+    return n >>> 0;
+  };
+  while (at < count) {
+    if (p >= bytes.length) throw new Error('grid data ended early (' + at + ' of ' + count + ' cells)');
+    const v = readVarint();
+    const run = readVarint();
+    if (run === 0) throw new Error('grid data has a zero-length run');
+    if (at + run > count) throw new Error('grid data overruns the grid');
+    for (let k = 0; k < run; k++) out[at++] = v;
+  }
+  if (p !== bytes.length) throw new Error('grid data has ' + (bytes.length - p) + ' trailing bytes');
+  return out;
+}
+/** FNV-1a over the compressed stream, so a corrupted payload is caught even
+    when it happens to decode to the right cell count. */
+function hashBytes(bytes) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+function bytesToB64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    s += String.fromCharCode.apply(null, bytes.slice(i, i + 0x8000));
+  }
+  return btoa(s);
+}
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function buildSave(includeState) {
+  const t = topo();
+  const sections = {
+    topology: { v: 1, id: t.id, cols: state.cols, rows: state.rows,
+                cellSize: state.cellSize, linkGrid: state.linkGrid, oddDims: state.oddDims },
+    rules: { v: 1,
+      masks: Object.fromEntries(KINDS.map((k) => [k, Array.from(rules.masks[k])])),
+      rates: Object.fromEntries(KINDS.map((k) => [k, rules.rates[k].slice()])),
+      decayDir: Array.from(rules.decayDir),
+      threshold: rules.threshold, resetOnBirth: rules.resetOnBirth, wrap: rules.wrap,
+      clampMin: rules.clampMin, clampMax: rules.clampMax },
+    adversaries: { v: 1, count: rules.adversaries, tie: rules.tiePolicy,
+                   palette: state.palette.slice(), shade: state.advShade, drawTeam: state.drawTeam },
+    colours: { v: 1, ...state.colours, invertLive: state.invertLive, invertDead: state.invertDead,
+               mode: state.colourMode, decayInfluence: state.decayInfluence },
+    display: { v: 1, borders: state.borders, centreOrigin: state.centreOrigin,
+               minimap: state.minimap, fps: state.fps, frameSkip: state.frameSkip,
+               density: state.density, brush: state.brush, lineMode: state.lineMode,
+               liveApply: state.liveApply, tool: state.tool, fillShape: state.fillShape,
+               backend: state.backend, view: { ...state.view } }
+  };
+  if (includeState) {
+    const words = new Uint32Array(state.grid.length);
+    for (let i = 0; i < words.length; i++) {
+      words[i] = packCell(state.grid[i], state.colour[i], state.accum[i]);
+    }
+    const runs = encodeRuns(words);
+    sections.state = { v: 1, encoding: 'varint-rle+b64', gen: state.gen,
+                       cells: words.length, hash: hashBytes(runs), data: bytesToB64(runs) };
+  }
+  return { format: SAVE_FORMAT, version: SAVE_VERSION, saved: new Date().toISOString(), sections };
+}
+
+function applySave(doc) {
+  if (!doc || doc.format !== SAVE_FORMAT) throw new Error('not a Probabilistic CA file');
+  if (doc.version > SAVE_VERSION) throw new Error('saved by a newer version (' + doc.version + ')');
+  const sec = doc.sections || {};
+  const notes = [];
+  quietEdits = true;
+
+  if (sec.topology && sec.topology.v <= 1) {
+    const s0 = sec.topology;
+    if (TOPOLOGIES[s0.id] && s0.id !== state.topo.id) setTopology(s0.id);
+    else if (!TOPOLOGIES[s0.id]) notes.push('unknown tiling "' + s0.id + '"');
+    state.linkGrid = !!s0.linkGrid;
+    state.oddDims = !!s0.oddDims;
+    state.cellSize = clampInt(s0.cellSize, 1, 20);
+    $('linkGrid').checked = state.linkGrid;
+    $('oddDims').checked = state.oddDims;
+    ui.cell.set(state.cellSize);
+    syncGridControls();
+    setGrid(s0.cols, s0.rows);
+  }
+  if (sec.rules && sec.rules.v <= 1) {
+    const r0 = sec.rules;
+    for (const k of KINDS) {
+      if (r0.masks && r0.masks[k] && r0.masks[k].length === state.masks[k].length) {
+        state.masks[k].set(r0.masks[k]);
+        state.offsets[k] = buildOffsets(state.masks[k], state.cols);
+      } else notes.push(k + ' mask did not fit this tiling');
+      resizeRates(k, false);
+      if (r0.rates && r0.rates[k]) {
+        for (let i = 0; i < state.rates[k].length; i++) {
+          if (Number.isFinite(r0.rates[k][i])) state.rates[k][i] = clampInt(r0.rates[k][i], 0, 100);
+        }
+        syncProbs(k);
+      }
+    }
+    state.decayDir = new Int8Array(state.offsets.decay.n + 1).fill(1);
+    if (r0.decayDir) for (let i = 0; i < state.decayDir.length; i++) {
+      if (r0.decayDir[i] !== undefined) state.decayDir[i] = r0.decayDir[i] < 0 ? -1 : 1;
+    }
+    state.threshold = clampInt(r0.threshold, 0, 100);
+    state.resetOnBirth = !!r0.resetOnBirth;
+    state.wrap = !!r0.wrap;
+    state.clampMin = clampInt(r0.clampMin, 0, 100);
+    state.clampMax = clampInt(r0.clampMax, state.clampMin, 100);
+    ui.clampMin.set(state.clampMin);
+    ui.clampMax.set(state.clampMax);
+    ui.threshold.set(state.threshold);
+    $('resetBirth').checked = state.resetOnBirth;
+    $('wrapEdges').checked = state.wrap;
+  }
+  if (sec.adversaries && sec.adversaries.v <= 1) {
+    const a0 = sec.adversaries;
+    state.adversaries = clampInt(a0.count, 1, MAX_ADVERSARIES);
+    if (TIE_POLICIES.some((p) => p.id === a0.tie)) state.tiePolicy = a0.tie;
+    if (Array.isArray(a0.palette)) {
+      for (let i = 0; i < Math.min(a0.palette.length, MAX_ADVERSARIES); i++) state.palette[i] = a0.palette[i];
+    }
+    if (Number.isFinite(a0.shade)) { state.advShade = clampInt(a0.shade, 0, 90); ui.advShade.set(state.advShade); }
+    state.drawTeam = clampInt(a0.drawTeam || 0, 0, MAX_ADVERSARIES - 1);
+    ui.adversaries.set(state.adversaries);
+  }
+  if (sec.colours && sec.colours.v <= 1) {
+    const c0 = sec.colours;
+    for (const key of ['liveLo', 'liveHi', 'deadLo', 'deadHi']) {
+      if (c0[key]) {
+        state.colours[key] = c0[key];
+        $(key).value = c0[key];
+        $(key + 'T').textContent = c0[key];
+      }
+    }
+    state.invertLive = !!c0.invertLive;
+    state.invertDead = !!c0.invertDead;
+    state.decayInfluence = clampInt(c0.decayInfluence, 0, 100);
+    $('invertLive').checked = state.invertLive;
+    $('invertDead').checked = state.invertDead;
+    if (COLOUR_MODES.includes(c0.mode)) setColourMode(c0.mode);
+  }
+  if (sec.display && sec.display.v <= 1) {
+    const d0 = sec.display;
+    state.borders = !!d0.borders;
+    state.centreOrigin = !!d0.centreOrigin;
+    state.minimap = d0.minimap !== false;
+    state.lineMode = !!d0.lineMode;
+    state.liveApply = !!d0.liveApply;
+    $('borders').checked = state.borders;
+    $('centreOrigin').checked = state.centreOrigin;
+    $('showMini').checked = state.minimap;
+    $('lineMode').checked = state.lineMode;
+    for (const b of document.querySelectorAll('[data-sync="liveApply"]')) b.checked = state.liveApply;
+    ui.fps.set(clampInt(d0.fps, 1, 60));
+    ui.skip.set(clampInt(d0.frameSkip, 0, 120));
+    ui.density.set(clampInt(d0.density, 0, 100));
+    ui.brush.set(clampInt(d0.brush, 1, 51));
+    if (typeof d0.fillShape === 'boolean') { state.fillShape = d0.fillShape; $('fillShape').checked = d0.fillShape; }
+    if (d0.tool) setTool(d0.tool);
+    if (d0.view && Number.isFinite(d0.view.zoom)) {
+      state.view.zoom = clamp(d0.view.zoom, ZOOM_MIN, ZOOM_MAX);
+      state.view.x = d0.view.x || 0;
+      state.view.y = d0.view.y || 0;
+      clampView();
+    }
+    if (['auto', 'cpu', 'gpu'].includes(d0.backend) && d0.backend !== state.backend) setBackend(d0.backend);
+  }
+
+  quietEdits = false;
+  commitRules();
+
+  if (sec.state && sec.state.v <= 1) {
+    const st = sec.state;
+    if (st.cells !== state.grid.length) {
+      notes.push('grid data was ' + st.cells + ' cells, this grid holds ' + state.grid.length + ' — skipped');
+    } else {
+      const raw = b64ToBytes(st.data);
+      if (Number.isFinite(st.hash) && hashBytes(raw) !== (st.hash >>> 0)) {
+        throw new Error('grid data failed its checksum — the file looks damaged');
+      }
+      const words = decodeRuns(raw, st.cells);
+      let live = 0;
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i];
+        const alive = w & CELL_ALIVE;
+        state.grid[i] = alive;
+        state.colour[i] = (w >>> CELL_COLOUR_SHIFT) & CELL_COLOUR_BITS;
+        state.accum[i] = (w >>> CELL_ACC_SHIFT) & CELL_ACC_BITS;
+        live += alive;
+      }
+      state.live = live;
+      state.gen = st.gen | 0;
+      recount();
+      if (gpu.active) gpuPush();
+    }
+  }
+
+  syncAdversaryUI();
+  syncClampChip();
+  buildLUTs();
+  syncGradients();
+  syncThemeSelection();
+  syncTopologyUI();
+  invalidateOverlay('all');
+  updateStats();
+  scheduleDraw();
+  drawMinimap(true);
+  return notes;
+}
+
+async function saveToFile() {
+  const withState = $('saveState').checked;
+  if (withState && gpu.active) {
+    $('fileNote').textContent = 'Reading the field back from the GPU…';
+    await gpuReadExact();
+    gpu.hold = false;
+  }
+  const doc = buildSave(withState);
+  const blob = new Blob([JSON.stringify(doc, null, 1)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'probabilistic-ca-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  $('fileNote').textContent = 'Saved ' + (withState ? 'settings and grid.' : 'settings only.')
+    + (pending.size ? ' ' + pending.size + ' pending change' + (pending.size === 1 ? '' : 's')
+        + ' were not included — the file holds the applied configuration.' : '');
+}
+function loadFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      setRunning(false);
+      const notes = applySave(JSON.parse(String(reader.result)));
+      $('fileNote').textContent = notes.length ? 'Loaded, with notes: ' + notes.join('; ') : 'Loaded.';
+    } catch (err) {
+      $('fileNote').textContent = 'Could not load: ' + (err.message || err);
+    }
+  };
+  reader.onerror = () => { $('fileNote').textContent = 'Could not read that file.'; };
+  reader.readAsText(file);
+}
+
 /* ============================ UI wiring ============================ */
 
 /** Mirror a checkbox that appears on more than one tab. Every copy carries
@@ -3650,6 +4396,78 @@ function syncedCheckbox(name, onChange) {
   return { set(v) { for (const box of boxes) box.checked = v; } };
 }
 const ui = {};
+
+function renderTeamPicker() {
+  const n = state.adversaries;
+  const host = $('teamPick');
+  const on = n > 1;
+  host.classList.toggle('hidden', !on);
+  $('teamField').classList.toggle('hidden', !on);
+  if (!on) return;
+  if (state.drawTeam >= n) state.drawTeam = 0;
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < n; i++) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'team-pick';
+    b.textContent = String(i + 1);
+    b.style.background = state.palette[i];
+    b.setAttribute('aria-pressed', String(i === state.drawTeam));
+    b.setAttribute('aria-label', 'Draw as colour ' + (i + 1));
+    b.addEventListener('pointerdown', (e) => e.preventDefault());
+    b.addEventListener('click', () => setDrawTeam(i));
+    frag.append(b);
+  }
+  host.replaceChildren(frag);
+}
+function setDrawTeam(i) {
+  state.drawTeam = clampInt(i, 0, Math.max(0, state.adversaries - 1));
+  for (const b of document.querySelectorAll('.team-pick')) {
+    b.setAttribute('aria-pressed', String(Number(b.textContent) - 1 === state.drawTeam));
+  }
+  invalidateOverlay('brush');
+  drawOverlay();
+}
+function syncAdversaryUI() {
+  const n = state.adversaries;
+  $('advChip').textContent = n <= 1 ? 'off' : n + ' colours';
+  $('shadeField').classList.toggle('off', n <= 1);
+  $('tieField').classList.toggle('off', n <= 1);
+  $('tieSel').disabled = n <= 1;
+  const pol = TIE_POLICIES.find((p) => p.id === state.tiePolicy) || TIE_POLICIES[0];
+  $('tieSel').value = pol.id;
+  $('tieNote').textContent = n <= 1
+    ? 'With one colour this behaves exactly as before — no colour bookkeeping runs at all.'
+    : pol.note;
+  const host = $('advPalette');
+  host.classList.toggle('hidden', n <= 1);
+  if (host.childElementCount !== n) {
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < n; i++) {
+      const label = document.createElement('label');
+      label.className = 'swatch';
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.value = state.palette[i];
+      input.addEventListener('input', () => {
+        state.palette[i] = input.value.toLowerCase();
+        buildLUTs();
+        renderTeamPicker();
+        invalidateOverlay('brush');
+        scheduleDraw();
+        drawMinimap(true);
+      });
+      const span = document.createElement('span');
+      const b = document.createElement('b');
+      b.textContent = 'Colour ' + (i + 1);
+      span.append(b);
+      label.append(input, span);
+      frag.append(label);
+    }
+    host.replaceChildren(frag);
+  }
+  renderTeamPicker();
+}
 
 function syncClampChip() {
   $('clampChip').textContent = state.clampMin + '–' + state.clampMax + '%';
@@ -3799,10 +4617,10 @@ function setupUI() {
   $('resetView').addEventListener('click', resetView);
 
   /* run tab */
-  bindPair('fpsR', 'fpsN', (v) => { state.fps = v; });
-  bindPair('skipR', 'skipN', (v) => { state.frameSkip = v; });
-  bindPair('densR', 'densN', (v) => { state.density = v; });
-  bindPair('brushR', 'brushN', (v) => {
+  ui.fps = bindPair('fpsR', 'fpsN', (v) => { state.fps = v; });
+  ui.skip = bindPair('skipR', 'skipN', (v) => { state.frameSkip = v; });
+  ui.density = bindPair('densR', 'densN', (v) => { state.density = v; });
+  ui.brush = bindPair('brushR', 'brushN', (v) => {
     state.brush = v % 2 ? v : v + 1;
     brushCache = { key: '', list: [] };
     invalidateOverlay('all');
@@ -3829,8 +4647,6 @@ function setupUI() {
   $('wrapEdges').addEventListener('change', (e) => {
     state.wrap = e.target.checked;
     noteChange('wrap:edges', 'edge wrapping');
-    syncTopologyUI();
-    if (wrapConstrains()) setGrid(state.cols, state.rows);
   });
   for (const b of document.querySelectorAll('[data-topo]')) {
     b.addEventListener('click', () => setTopology(b.dataset.topo));
@@ -3874,6 +4690,42 @@ function setupUI() {
   $('applyBtn').addEventListener('click', commitRules);
   $('revertBtn').addEventListener('click', revertRules);
 
+  /* adversaries */
+  const tieSel = $('tieSel');
+  for (const pol of TIE_POLICIES) {
+    const o = document.createElement('option');
+    o.value = pol.id;
+    o.textContent = pol.label;
+    tieSel.append(o);
+  }
+  tieSel.addEventListener('change', () => {
+    state.tiePolicy = tieSel.value;
+    syncAdversaryUI();
+    noteChange('birth:tie', 'tie-break policy');
+  });
+  ui.advShade = bindPair('advShadeR', 'advShadeN', (v) => {
+    state.advShade = v;
+    buildLUTs();
+    scheduleDraw();
+    drawMinimap(true);
+  });
+  ui.adversaries = bindPair('advR', 'advN', (v) => {
+    state.adversaries = v;
+    syncAdversaryUI();
+    buildLUTs();
+    noteChange('birth:adversaries', 'adversary count');
+    scheduleDraw();
+  });
+
+  /* file */
+  $('saveBtn').addEventListener('click', saveToFile);
+  $('loadBtn').addEventListener('click', () => $('loadInput').click());
+  $('loadInput').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) loadFromFile(f);
+    e.target.value = '';
+  });
+
   /* clamp + masters */
   ui.clampMin = bindPair('clampMinR', 'clampMinN', (v) => { state.clampMin = v; applyClamp(); }, () => ({ min: 0, max: state.clampMax }));
   ui.clampMax = bindPair('clampMaxR', 'clampMaxN', (v) => { state.clampMax = v; applyClamp(); }, () => ({ min: state.clampMin, max: 100 }));
@@ -3898,11 +4750,14 @@ function setupUI() {
     state.resetOnBirth = e.target.checked;
     noteChange('resetOnBirth:flag', 'clear counter on birth');
   });
-  $('clearAccum').addEventListener('click', () => {
-    if (gpu.active) gpuSyncDown();
+  $('clearAccum').addEventListener('click', async () => {
+    // gpuPush rewrites every cell, so an approximate mirror here would rewind
+    // live state and colours by a generation as a side effect of zeroing counters.
+    if (gpu.active) await gpuReadExact();
     state.accum.fill(0);
     state.spent = 0;
-    if (gpu.active) gpuPush();
+    if (gpu.active) { gpuPush(); gpu.hold = false; }
+    bumpRev();
     updateStats();
     scheduleDraw();
   });
@@ -3958,6 +4813,9 @@ function setupUI() {
       return;
     }
     switch (e.key) {
+      case '1': case '2': case '3': case '4': case '5': case '6':
+        if (rules.adversaries > 1) { e.preventDefault(); setDrawTeam(Number(e.key) - 1); }
+        break;
       case 'b': case 'B': e.preventDefault(); setTool('brush'); break;
       case 'l': case 'L': e.preventDefault(); setTool('line'); break;
       case 'x': case 'X': e.preventDefault(); setTool('select'); break;
@@ -4037,6 +4895,7 @@ function init() {
   syncGradients();
   renderThemes();
   syncClampChip();
+  syncAdversaryUI();
   syncGridControls();
 
   for (const k of KINDS) { renderPatternButtons(k); renderMask(k); renderRules(k); }
