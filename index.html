@@ -265,6 +265,14 @@ input:disabled{opacity:.4;cursor:not-allowed}
   position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   z-index:2;pointer-events:none;
 }
+.mini{
+  position:absolute;right:10px;bottom:10px;z-index:5;
+  border:1px solid var(--line-hi);border-radius:6px;
+  background:rgba(4,6,10,.86);box-shadow:0 6px 18px rgba(0,0,0,.45);
+  cursor:crosshair;touch-action:none;image-rendering:pixelated;
+}
+.seg.five{grid-template-columns:repeat(5,1fr)}
+.seg.five button{font-size:.7rem;padding:0 2px}
 .hidden{display:none!important}
 .reticle{
   position:absolute;top:0;left:0;z-index:3;pointer-events:none;
@@ -393,6 +401,32 @@ input:disabled{opacity:.4;cursor:not-allowed}
           </div>
 
           <div class="card">
+            <h2 class="card-title">Tool</h2>
+            <div class="seg five" role="tablist" aria-label="Drawing tool">
+              <button role="tab" type="button" data-tool="brush" aria-selected="true">Brush</button>
+              <button role="tab" type="button" data-tool="line" aria-selected="false">Line</button>
+              <button role="tab" type="button" data-tool="rect" aria-selected="false">Box</button>
+              <button role="tab" type="button" data-tool="ellipse" aria-selected="false">Oval</button>
+              <button role="tab" type="button" data-tool="select" aria-selected="false">Select</button>
+            </div>
+            <div class="field check" id="fillField">
+              <label for="fillShape">Fill the shape</label>
+              <input id="fillShape" type="checkbox" checked>
+            </div>
+            <p class="help" id="toolHelp">Drag to paint. The first cell you touch decides whether the stroke writes live or dead.</p>
+          </div>
+
+          <div class="card">
+            <h2 class="card-title">Selection <span class="chip" id="selChip">none</span></h2>
+            <div class="btn-row three">
+              <button class="btn" id="copyBtn" type="button">Copy</button>
+              <button class="btn" id="pasteBtn" type="button">Paste</button>
+              <button class="btn" id="deselectBtn" type="button">Clear</button>
+            </div>
+            <p class="help">Select drags a box, Copy keeps its contents, Paste drops them at the selection's corner. On hexagons and triangles the paste point snaps to a cell of matching orientation so the shape survives.</p>
+          </div>
+
+          <div class="card">
             <h2 class="card-title">Brush</h2>
             <div class="field check">
               <label for="lineMode">Connect the drag path</label>
@@ -479,6 +513,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <p class="help">Which offsets a dead cell scans for live neighbours. Centre is the cell itself.</p>
               <div class="mask birth" id="birthMask" aria-label="Birth neighbour mask"></div>
               <div class="btn-row pat" id="birthPatterns"></div>
+              <button class="btn full" type="button" data-masksync="birth">Copy this layout to the other two</button>
             </div>
             <div class="card birth-tint">
               <h2 class="card-title">Birth chance per live neighbour</h2>
@@ -498,6 +533,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <p class="help">Which offsets a live cell scans for live neighbours.</p>
               <div class="mask death" id="deathMask" aria-label="Death neighbour mask"></div>
               <div class="btn-row pat" id="deathPatterns"></div>
+              <button class="btn full" type="button" data-masksync="death">Copy this layout to the other two</button>
             </div>
             <div class="card">
               <h2 class="card-title">Death chance per live neighbour</h2>
@@ -543,6 +579,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
             <p class="help">Which offsets feed the counter roll. Live and dead cells both roll.</p>
             <div class="mask decay" id="decayMask" aria-label="Depletion neighbour mask"></div>
             <div class="btn-row pat" id="decayPatterns"></div>
+              <button class="btn full" type="button" data-masksync="decay">Copy this layout to the other two</button>
           </div>
 
           <div class="card">
@@ -599,6 +636,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
             <div class="field check"><label for="wrapEdges">Wrap edges</label><input id="wrapEdges" type="checkbox" checked></div>
             <div class="field check"><label for="borders">Cell borders</label><input id="borders" type="checkbox" checked></div>
             <div class="field check"><label for="centreOrigin">Read coordinates from centre</label><input id="centreOrigin" type="checkbox"></div>
+            <div class="field check"><label for="showMini">Show minimap</label><input id="showMini" type="checkbox" checked></div>
             <p class="help">Untick the link to set columns and rows yourself. Odd size trims a column and a row so the field has one exact middle cell. Resizing resamples what is already drawn.</p>
           </div>
 
@@ -661,6 +699,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
         <canvas id="cv" aria-label="Cellular automaton field"></canvas>
         <canvas id="gv" class="canvas-off" aria-hidden="true"></canvas>
         <canvas id="ov" class="overlay" aria-hidden="true"></canvas>
+        <canvas id="mini" class="mini" width="160" height="120" aria-label="Minimap"></canvas>
         <div class="reticle" id="reticle" hidden></div>
         <div class="coords" id="coords" hidden></div>
       </div>
@@ -741,9 +780,17 @@ function squareTopology() {
     centreIndex: cells.findIndex((c) => c.dr === 0 && c.dc === 0),
     delta: (cell) => ({ dr: cell.dr, dc: cell.dc }),
     world: (cols, rws) => ({ w: cols, h: rws }),
-    centre: (c, r) => ({ x: c + 0.5, y: r + 0.5 }),
+    cx: (c) => c + 0.5,
+    cy: (c, r) => r + 0.5,
+    centre(c, r) { return { x: this.cx(c, r), y: this.cy(c, r) }; },
     corners: (c, r) => [[c, r], [c + 1, r], [c + 1, r + 1], [c, r + 1]],
     pick: (x, y) => ({ c: Math.floor(x), r: Math.floor(y) }),
+    // Cell across each edge, in the same order corners() lists them.
+    edgeAdjInto: (c, r, o) => {
+      o[0] = c; o[1] = r - 1; o[2] = c + 1; o[3] = r;
+      o[4] = c; o[5] = r + 1; o[6] = c - 1; o[7] = r;
+      return 4;
+    },
     patterns: ['adjacent', 'all', 'disc', 'ring', 'cross', 'diagonal', 'checker', 'random'],
     note: ''
   };
@@ -776,7 +823,9 @@ function hexTopology() {
       dc: cell.dq + (parity ? Math.floor((cell.dr + 1) / 2) : Math.floor(cell.dr / 2))
     }),
     world: (cols, rws) => ({ w: cols + 0.5, h: (rws - 1) * HEX_V + HEX_H }),
-    centre: (c, r) => ({ x: c + 0.5 + (r & 1) * 0.5, y: r * HEX_V + HEX_H / 2 }),
+    cx: (c, r) => c + 0.5 + (r & 1) * 0.5,
+    cy: (c, r) => r * HEX_V + HEX_H / 2,
+    centre(c, r) { return { x: this.cx(c, r), y: this.cy(c, r) }; },
     corners(c, r) {
       const p = this.centre(c, r), out = [];
       for (let k = 0; k < 6; k++) {
@@ -789,6 +838,16 @@ function hexTopology() {
       const rf = (y - HEX_H / 2) / HEX_V;
       const a = axialRound((x - 0.5) - rf / 2, rf);
       return { c: a.q + ((a.r - (a.r & 1)) >> 1), r: a.r };
+    },
+    edgeAdjInto(c, r, o) {
+      const s = r & 1;                         // odd rows sit half a cell right
+      o[0] = c + s;     o[1] = r - 1;
+      o[2] = c + 1;     o[3] = r;
+      o[4] = c + s;     o[5] = r + 1;
+      o[6] = c - 1 + s; o[7] = r + 1;
+      o[8] = c - 1;     o[9] = r;
+      o[10] = c - 1 + s; o[11] = r - 1;
+      return 6;
     },
     patterns: ['adjacent', 'all', 'disc', 'ring', 'cross', 'random'],
     note: 'Odd rows are offset by half a cell. With wrapping on, the row count is forced even so the vertical seam stays symmetric; columns are unrestricted.'
@@ -840,10 +899,9 @@ function triTopology() {
     maskClass: (m) => (((m.dr + m.dc) & 1) === 0 ? 'up' : 'down'),
     delta: (cell, parity) => ({ dr: parity ? -cell.dr : cell.dr, dc: cell.dc }),
     world: (cols, rws) => ({ w: cols / 2 + 0.5, h: rws * TRI_H }),
-    centre: (c, r) => ({
-      x: c / 2 + 0.5,
-      y: r * TRI_H + (((r + c) & 1) === 0 ? (2 / 3) : (1 / 3)) * TRI_H
-    }),
+    cx: (c) => c / 2 + 0.5,
+    cy: (c, r) => r * TRI_H + (((r + c) & 1) === 0 ? (2 / 3) : (1 / 3)) * TRI_H,
+    centre(c, r) { return { x: this.cx(c, r), y: this.cy(c, r) }; },
     corners(c, r) {
       const x0 = c / 2, y0 = r * TRI_H, y1 = y0 + TRI_H;
       // Both orientations wound the same way, so a shared edge is traversed in
@@ -860,6 +918,14 @@ function triTopology() {
       const c = ((r + k) & 1) === 0 ? (fx + fy >= 1 ? k : k - 1) : (fx >= fy ? k : k - 1);
       return { c, r };
     },
+    edgeAdjInto(c, r, o) {
+      if (((r + c) & 1) === 0) {                 // up: bottom, right, left
+        o[0] = c; o[1] = r + 1; o[2] = c + 1; o[3] = r; o[4] = c - 1; o[5] = r;
+      } else {                                   // down: left, right, top
+        o[0] = c - 1; o[1] = r; o[2] = c + 1; o[3] = r; o[4] = c; o[5] = r - 1;
+      }
+      return 3;
+    },
     brushPoly(c, r, n) {
       const ra = r - ((n - 1) >> 1);
       const left = (c - n + 1) / 2, right = (c + n + 1) / 2, mid = (c + 1) / 2;
@@ -873,7 +939,17 @@ function triTopology() {
   };
 }
 
+for (const t of [squareTopology, hexTopology, triTopology]) void t;
 const TOPOLOGIES = { square: squareTopology(), hex: hexTopology(), tri: triTopology() };
+for (const t of Object.values(TOPOLOGIES)) {
+  t.edgeAdj = (c, r) => {
+    const o = new Int32Array(12);
+    const n = t.edgeAdjInto(c, r, o);
+    const out = [];
+    for (let i = 0; i < n; i++) out.push([o[i * 2], o[i * 2 + 1]]);
+    return out;
+  };
+}
 
 /** Bounding box of a topology's mask, in the same units as maskCell. */
 function maskBox(t) {
@@ -941,6 +1017,10 @@ const state = {
   oddDims: false,
   centreOrigin: false,
   brush: 1,
+  tool: 'brush',
+  fillShape: true,
+  selection: null,
+  minimap: true,
   lineMode: false,
   wrap: true,
   borders: true,
@@ -1127,6 +1207,12 @@ function setTopology(id) {
   state.decayDir = new Int8Array(state.offsets.decay.n + 1).fill(1);
   for (const k of KINDS) { renderPatternButtons(k); renderMask(k); renderRules(k); }
   quietEdits = false;
+  state.selection = null;
+  clipboard = null;
+  shaping = null;
+  brushCache = { key: '', list: [] };
+  invalidateOverlay('all');
+  refreshSelectionUI();
   commitRules();
   syncTopologyUI();
   setGrid(state.cols, state.rows);
@@ -1180,6 +1266,12 @@ function setGrid(cols, rows) {
   recount();
   clampView();
   reflectDims(d);
+  if (state.selection && (state.selection.c1 >= d.cols || state.selection.r1 >= d.rows)) {
+    state.selection = null;
+    refreshSelectionUI();
+  }
+  shaping = null;
+  invalidateOverlay('all');
   if (carry) gpuAllocate(carry);
   resizeCanvas();
   updateStats();
@@ -1230,6 +1322,10 @@ function clearGrid() {
   state.next.fill(0);
   state.accum.fill(0);
   state.live = 0; state.spent = 0; state.gen = 0; state.skipped = 0;
+  state.selection = null;
+  shaping = null;
+  invalidateOverlay('all');
+  refreshSelectionUI();
   if (gpu.active) gpuPush();
   updateStats();
   scheduleDraw();
@@ -1473,6 +1569,7 @@ function draw() {
   if (gpu.active) drawGPU(); else drawCPU();
   drawReticle();
   drawOverlay();
+  drawMinimap(false);
 }
 
 /** Cells visible in the current view, as an inclusive-exclusive index box.
@@ -2633,6 +2730,25 @@ function paintMaskCell(kind, i, value) {
   mask[i] = value;
   return true;
 }
+/** Copy one kind's neighbourhood onto the other two. Layout only — the rate
+    sliders keep their values, resized only where the neighbour count changes. */
+function syncMasksFrom(kind) {
+  quietEdits = true;
+  state.offsets[kind] = buildOffsets(state.masks[kind], state.cols);
+  resizeRates(kind, false);
+  renderRules(kind);
+  for (const k of KINDS) {
+    if (k === kind) continue;
+    state.masks[k].set(state.masks[kind]);
+    state.offsets[k] = buildOffsets(state.masks[k], state.cols);
+    resizeRates(k, false);
+    renderMask(k);
+    renderRules(k);
+  }
+  quietEdits = false;
+  noteChange(kind + ':masksync', 'matched neighbourhoods to ' + kind);
+}
+
 function applyPattern(kind, id) {
   const t = topo();
   const p = PATTERNS[id];
@@ -2843,45 +2959,71 @@ function brushOffsets(parity) {
   const out = [];
   for (let r = Math.min(a.r, b.r) - pad; r <= Math.max(a.r, b.r) + pad; r++) {
     for (let c = Math.min(a.c, b.c) - pad; c <= Math.max(a.c, b.c) + pad; c++) {
-      const p = t.centre(c, r);
-      if (insideConvex(poly, p.x, p.y)) out.push([c - c0, r - r0]);
+      if (insideConvex(poly, t.cx(c, r), t.cy(c, r))) out.push([c - c0, r - r0]);
     }
   }
   brushCache.list[parity] = out;
   return out;
 }
 function brushCells(c, r) {
-  if (state.brush <= 1) return [[c, r]];
+  const cols = state.cols;
+  if (state.brush <= 1) return [r * cols + c];
+  const offs = brushOffsets(parityOfCell(r, c));
   const out = [];
-  for (const [dc, dr] of brushOffsets(parityOfCell(r, c))) {
-    const cc = c + dc, rr = r + dr;
-    if (cc >= 0 && cc < state.cols && rr >= 0 && rr < state.rows) out.push([cc, rr]);
+  for (let i = 0; i < offs.length; i++) {
+    const cc = c + offs[i][0], rr = r + offs[i][1];
+    if (cc >= 0 && cc < cols && rr >= 0 && rr < state.rows) out.push(rr * cols + cc);
   }
   return out;
 }
 
-/** Outline of a set of cells, keeping only edges that aren't shared. Adjacent
-    cells traverse a common edge in opposite directions, so it cancels — what's
-    left is the outer perimeter, which is all the brush or a stamp needs to show. */
+/** Outline of a set of cells. An edge is on the perimeter when the cell across
+    it isn't in the set, which the topology can answer directly. The previous
+    version hashed vertex coordinates as strings to cancel shared edges: that
+    allocated two strings per edge (millions on a large fill, hence the lag) and
+    could fail to match when two cells computed the same vertex with slightly
+    different rounding, leaving stray segments inside the shape. */
+let memberMask = null;
+const outlineScratch = new Int32Array(12);
 function outlinePath(cells) {
-  const t = topo();
-  const edges = new Map();
-  const at = (p) => p[0].toFixed(5) + ',' + p[1].toFixed(5);
-  for (const [c, r] of cells) {
+  const t = topo(), cols = state.cols, rows = state.rows;
+  const path = new Path2D();
+  if (!cells.length) return path;
+  if (!memberMask || memberMask.length !== cols * rows) memberMask = new Uint8Array(cols * rows);
+  for (let k = 0; k < cells.length; k++) memberMask[cells[k]] = 1;
+  const adj = outlineScratch;
+  for (let k = 0; k < cells.length; k++) {
+    const idx = cells[k];
+    const c = idx % cols, r = (idx / cols) | 0;
+    const n = t.edgeAdjInto(c, r, adj);
+    // Interior cells are the overwhelming majority on a filled shape, and they
+    // never touch corners() — that is what keeps a full-grid fill affordable.
+    let onEdge = false;
+    for (let e = 0; e < n; e++) {
+      const nc = adj[e * 2], nr = adj[e * 2 + 1];
+      if (nc < 0 || nc >= cols || nr < 0 || nr >= rows || !memberMask[nr * cols + nc]) { onEdge = true; break; }
+    }
+    if (!onEdge) continue;
     const pts = t.corners(c, r);
-    for (let i = 0; i < pts.length; i++) {
-      const a = pts[i], b = pts[(i + 1) % pts.length];
-      const back = at(b) + '|' + at(a);
-      if (edges.has(back)) edges.delete(back);
-      else edges.set(at(a) + '|' + at(b), [a, b]);
+    for (let e = 0; e < n; e++) {
+      const nc = adj[e * 2], nr = adj[e * 2 + 1];
+      if (nc >= 0 && nc < cols && nr >= 0 && nr < rows && memberMask[nr * cols + nc]) continue;
+      const a = pts[e], b = pts[(e + 1) % n];
+      path.moveTo(a[0], a[1]);
+      path.lineTo(b[0], b[1]);
     }
   }
-  const path = new Path2D();
-  for (const [, [a, b]] of edges) {
-    path.moveTo(a[0], a[1]);
-    path.lineTo(b[0], b[1]);
-  }
+  for (let k = 0; k < cells.length; k++) memberMask[cells[k]] = 0;
   return path;
+}
+
+/* Overlay paths are cached: they live in world coordinates, so panning and
+   zooming reuse them and only a change of contents rebuilds one. */
+let selPath = null, shapePath = null, brushPath = null, brushKey = '';
+function invalidateOverlay(what) {
+  if (what === 'sel' || what === 'all') selPath = null;
+  if (what === 'shape' || what === 'all') shapePath = null;
+  if (what === 'brush' || what === 'all') { brushPath = null; brushKey = ''; }
 }
 
 function drawOverlay() {
@@ -2890,22 +3032,300 @@ function drawOverlay() {
   if (!octx) return;
   octx.setTransform(1, 0, 0, 1, 0, 0);
   octx.clearRect(0, 0, ov.width, ov.height);
-  if (!hover || state.brush <= 1) return;
 
   const box = worldBox(), v = state.view;
   const scale = ov.width / (box.w / v.zoom);
+  const trace = (path, tint) => {
+    if (!path) return;
+    octx.lineCap = 'round';
+    octx.lineWidth = 3.5 / scale;
+    octx.strokeStyle = 'rgba(0,0,0,.7)';
+    octx.stroke(path);
+    octx.lineWidth = 1.6 / scale;
+    octx.strokeStyle = tint;
+    octx.stroke(path);
+  };
   octx.save();
   octx.scale(scale, scale);
   octx.translate(-v.x, -v.y);
-  const path = outlinePath(brushCells(hover.c, hover.r));
-  octx.lineCap = 'round';
-  octx.lineWidth = 3.5 / scale;
-  octx.strokeStyle = 'rgba(0,0,0,.7)';
-  octx.stroke(path);
-  octx.lineWidth = 1.6 / scale;
-  octx.strokeStyle = 'rgba(255,255,255,.95)';
-  octx.stroke(path);
+
+  if (state.selection) {
+    if (!selPath) selPath = outlinePath(selectionCells());
+    trace(selPath, 'rgba(160,107,255,.95)');
+  }
+  if (shaping) {
+    if (!shapePath) shapePath = outlinePath(previewCells());
+    trace(shapePath, state.tool === 'select' ? 'rgba(160,107,255,.95)' : 'rgba(255,255,255,.95)');
+  } else if (hover && state.tool === 'brush' && state.brush > 1) {
+    const key = hover.c + ':' + hover.r + ':' + state.brush + ':' + topo().id;
+    if (key !== brushKey) { brushKey = key; brushPath = outlinePath(brushCells(hover.c, hover.r)); }
+    trace(brushPath, 'rgba(255,255,255,.95)');
+  }
   octx.restore();
+}
+
+/** Overlay redraws are coalesced to one per frame; a fast pointer can fire many
+    move events between frames and none of them need their own recompute. */
+let overlayQueued = false;
+function scheduleOverlay() {
+  if (overlayQueued) return;
+  overlayQueued = true;
+  requestAnimationFrame(() => { overlayQueued = false; drawOverlay(); });
+}
+
+/* ============================ shape tools ============================
+
+   Shapes are defined in world space and a cell joins if its centroid falls
+   inside — the same rule the brush uses. Nothing here knows what shape a cell
+   is, so lines, boxes and ovals work on every tiling and will keep working on
+   the ones still to come.                                                    */
+
+function cellsWhere(test, x0, y0, x1, y1) {
+  const t = topo();
+  const pad = t.visPad + 1;
+  const a = t.pick(x0, y0), b = t.pick(x1, y1);
+  const c0 = clampInt(Math.min(a.c, b.c) - pad, 0, state.cols - 1);
+  const c1 = clampInt(Math.max(a.c, b.c) + pad, 0, state.cols - 1);
+  const r0 = clampInt(Math.min(a.r, b.r) - pad, 0, state.rows - 1);
+  const r1 = clampInt(Math.max(a.r, b.r) + pad, 0, state.rows - 1);
+  const out = [];
+  const cols = state.cols;
+  for (let r = r0; r <= r1; r++) {
+    const base = r * cols;
+    for (let c = c0; c <= c1; c++) {
+      if (test(t.cx(c, r), t.cy(c, r))) out.push(base + c);
+    }
+  }
+  return out;
+}
+
+/** Union of the brush footprint sampled along a path. Walking the path rather
+    than testing a band means an outline is always connected and exactly one
+    brush thick, even when the path lands precisely on a cell boundary. */
+function strokeCells(points, closed) {
+  const t = topo();
+  const seen = new Set(), out = [];
+  const push = (c, r) => {
+    const cells = brushCells(c, r);
+    for (let i = 0; i < cells.length; i++) {
+      if (!seen.has(cells[i])) { seen.add(cells[i]); out.push(cells[i]); }
+    }
+  };
+  const n = points.length;
+  const segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const a = points[i], b = points[(i + 1) % n];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const steps = Math.max(1, Math.min(4000, Math.ceil(len / 0.2)));
+    for (let k = 0; k <= steps; k++) {
+      const u = k / steps;
+      const cell = t.pick(a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u);
+      if (cell.c < 0 || cell.c >= state.cols || cell.r < 0 || cell.r >= state.rows) continue;
+      push(cell.c, cell.r);
+    }
+  }
+  return out;
+}
+
+/** Cells for the drag in progress, computed at most once per change. */
+function previewCells() {
+  if (!shaping) return [];
+  if (!shaping.cells) shaping.cells = shapeCells(shaping);
+  return shaping.cells;
+}
+function shapeCells(sh) {
+  const a = sh.a, b = sh.b;
+  const filled = state.fillShape;
+  if (sh.tool === 'line') return strokeCells([a, b], false);
+
+  const xa = Math.min(a.x, b.x), xb = Math.max(a.x, b.x);
+  const ya = Math.min(a.y, b.y), yb = Math.max(a.y, b.y);
+  const box = (test) => cellsWhere(test, xa, ya, xb, yb);
+  const cx = (xa + xb) / 2, cy = (ya + yb) / 2;
+  const rx = Math.max(1e-6, (xb - xa) / 2), ry = Math.max(1e-6, (yb - ya) / 2);
+
+  if (sh.tool === 'select' || (sh.tool === 'rect' && filled)) {
+    return box((x, y) => x >= xa && x <= xb && y >= ya && y <= yb);
+  }
+  // An outline is the filled shape minus the same shape eroded by the brush
+  // width. That guarantees it is a subset of the filled version, stays exactly
+  // one brush thick, and can't zigzag the way a traced path does on offset rows.
+  const th = Math.max(1, state.brush);
+  const erode = (outer, innerTest) => {
+    const inner = new Set(cellsWhere(innerTest, xa, ya, xb, yb));
+    const ring = outer.filter((i) => !inner.has(i));
+    return ring.length ? ring : outer;
+  };
+  if (sh.tool === 'rect') {
+    return erode(box((x, y) => x >= xa && x <= xb && y >= ya && y <= yb),
+                 (x, y) => x >= xa + th && x <= xb - th && y >= ya + th && y <= yb - th);
+  }
+  if (filled) {
+    return box((x, y) => {
+      const u = (x - cx) / rx, v = (y - cy) / ry;
+      return u * u + v * v <= 1;
+    });
+  }
+
+  const ix = rx - th, iy = ry - th;
+  return erode(box((x, y) => {
+    const u = (x - cx) / rx, v = (y - cy) / ry;
+    return u * u + v * v <= 1;
+  }), (x, y) => {
+    if (ix <= 0 || iy <= 0) return false;
+    const u = (x - cx) / ix, v = (y - cy) / iy;
+    return u * u + v * v <= 1;
+  });
+}
+
+function setTool(id) {
+  state.tool = id;
+  for (const b of document.querySelectorAll('[data-tool]')) {
+    b.setAttribute('aria-selected', String(b.dataset.tool === id));
+  }
+  $('fillField').classList.toggle('off', id === 'brush' || id === 'line' || id === 'select');
+  invalidateOverlay('all');
+  $('toolHelp').textContent = id === 'brush'
+    ? 'Drag to paint. The first cell you touch decides whether the stroke writes live or dead.'
+    : id === 'select'
+      ? 'Drag a box to select. The brush size sets nothing here — only the box matters.'
+      : 'Drag from one corner to the other. Release to commit; the outline previews exactly which cells change. Brush size sets the line thickness.';
+  drawOverlay();
+}
+
+/* ---------------- clipboard ---------------- */
+function selectionCells() {
+  const s = state.selection;
+  if (!s) return [];
+  const out = [], cols = state.cols;
+  for (let r = s.r0; r <= s.r1; r++) {
+    const base = r * cols;
+    for (let c = s.c0; c <= s.c1; c++) out.push(base + c);
+  }
+  return out;
+}
+function refreshSelectionUI() {
+  const s = state.selection;
+  $('selChip').textContent = s
+    ? (s.c1 - s.c0 + 1) + ' × ' + (s.r1 - s.r0 + 1) + (clipboard ? ' · ' + clipboard.cells.length + ' copied' : '')
+    : (clipboard ? clipboard.cells.length + ' copied' : 'none');
+}
+let clipboard = null;
+function copySelection() {
+  const s = state.selection;
+  if (!s) return;
+  if (gpu.active) gpuSyncDown();
+  const cells = [];
+  for (let r = s.r0; r <= s.r1; r++) {
+    for (let c = s.c0; c <= s.c1; c++) {
+      const i = r * state.cols + c;
+      cells.push([c - s.c0, r - s.r0, state.grid[i], state.accum[i]]);
+    }
+  }
+  // Orientation matters on hexagons and triangles: a patch only keeps its shape
+  // if it lands on an anchor with the same parity it was lifted from.
+  clipboard = { cells, parity: parityOfCell(s.r0, s.c0), topo: topo().id };
+  refreshSelectionUI();
+}
+function pasteClipboard() {
+  if (!clipboard) return;
+  if (clipboard.topo !== topo().id) return;
+  const anchor = state.selection
+    ? { c: state.selection.c0, r: state.selection.r0 }
+    : (hover || { c: 0, r: 0 });
+  let ac = anchor.c, ar = anchor.r;
+  if (parityOfCell(ar, ac) !== clipboard.parity) {
+    if (state.topo.parityMode === 1) ar += (ar + 1 < state.rows) ? 1 : -1;
+    else ac += (ac + 1 < state.cols) ? 1 : -1;
+  }
+  if (gpu.active) { gpu.hold = true; gpuSyncDown(); }
+  let delta = 0, c0 = Infinity, r0 = Infinity, c1 = -Infinity, r1 = -Infinity;
+  for (const [dc, dr, alive, acc] of clipboard.cells) {
+    const c = ac + dc, r = ar + dr;
+    if (c < 0 || c >= state.cols || r < 0 || r >= state.rows) continue;
+    const i = r * state.cols + c;
+    if (state.grid[i] !== alive) { delta += alive ? 1 : -1; state.grid[i] = alive; }
+    state.accum[i] = acc;
+    if (c < c0) c0 = c;
+    if (c > c1) c1 = c;
+    if (r < r0) r0 = r;
+    if (r > r1) r1 = r;
+  }
+  if (c1 >= c0) noteRect(c0, r0, c1, r1);
+  commitPaint(delta);
+  invalidateOverlay('all');
+  drawOverlay();
+  gpu.hold = false;
+}
+
+/* ============================ minimap ============================ */
+const miniSrc = document.createElement('canvas');
+const miniCtx = miniSrc.getContext('2d', { alpha: false, willReadFrequently: true });
+let miniImg = null, miniPix = null, miniDue = 0;
+
+function drawMinimap(force) {
+  const mm = $('mini');
+  if (!state.minimap) { mm.classList.add('hidden'); return; }
+  mm.classList.remove('hidden');
+  const now = performance.now();
+  if (!force && now < miniDue) return;
+  miniDue = now + 120;
+
+  const mctx = mm.getContext('2d');
+  if (!mctx) return;
+  if (miniSrc.width !== state.cols || miniSrc.height !== state.rows) {
+    miniSrc.width = state.cols;
+    miniSrc.height = state.rows;
+    miniImg = miniCtx.createImageData(state.cols, state.rows);
+    miniPix = new Uint32Array(miniImg.data.buffer);
+  }
+  const live = liveLUT[100], dead = deadLUT[0];
+  const mirror = gpu.active && gpu.mirror && gpu.mirror.length === state.grid.length ? gpu.mirror : null;
+  for (let i = 0; i < miniPix.length; i++) {
+    miniPix[i] = (mirror ? (mirror[i] & 1) : state.grid[i]) ? live : dead;
+  }
+  miniCtx.putImageData(miniImg, 0, 0);
+
+  const box = worldBox();
+  const w = 150, h = Math.max(50, Math.round(w * box.h / box.w));
+  if (mm.width !== w || mm.height !== h) { mm.width = w; mm.height = h; }
+  mctx.imageSmoothingEnabled = false;
+  mctx.drawImage(miniSrc, 0, 0, w, h);
+
+  const v = state.view;
+  mctx.strokeStyle = 'rgba(255,255,255,.9)';
+  mctx.lineWidth = 1;
+  mctx.strokeRect(
+    Math.round(v.x / box.w * w) + 0.5, Math.round(v.y / box.h * h) + 0.5,
+    Math.max(2, Math.round(w / v.zoom) - 1), Math.max(2, Math.round(h / v.zoom) - 1));
+}
+function setupMinimap() {
+  const mm = $('mini');
+  let dragging = false;
+  const jump = (e) => {
+    const box = worldBox(), v = state.view;
+    const rect = mm.getBoundingClientRect();
+    const fx = clamp((e.clientX - rect.left) / rect.width, 0, 1);
+    const fy = clamp((e.clientY - rect.top) / rect.height, 0, 1);
+    v.x = fx * box.w - (box.w / v.zoom) / 2;
+    v.y = fy * box.h - (box.h / v.zoom) / 2;
+    clampView();
+    updateStats();
+    scheduleDraw();
+    drawMinimap(true);
+  };
+  mm.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    mm.setPointerCapture(e.pointerId);
+    dragging = true;
+    jump(e);
+  });
+  mm.addEventListener('pointermove', (e) => { if (dragging) { e.preventDefault(); jump(e); } });
+  const end = () => { dragging = false; };
+  mm.addEventListener('pointerup', end);
+  mm.addEventListener('pointercancel', end);
+  mm.addEventListener('lostpointercapture', end);
 }
 
 /* ============================ hover reticle ============================ */
@@ -2986,7 +3406,41 @@ function drawReticle() {
 /* ============================ pointer input ============================ */
 const pointers = new Map();
 let painting = false, panning = false, strokeValue = 1, lastCell = null, lastPan = null, pinch = null;
-let paintRect = null;
+let paintRect = null, shaping = null;
+
+/** Turn the in-progress drag into cells: a selection box, or a painted shape. */
+function commitShape() {
+  const sh = shaping;
+  shaping = null;
+  if (!sh) return;
+  const cells = sh.cells || shapeCells(sh);
+  const cols = state.cols, g = state.grid;
+  let c0 = Infinity, r0 = Infinity, c1 = -Infinity, r1 = -Infinity;
+  for (let k = 0; k < cells.length; k++) {
+    const i = cells[k];
+    const cc = i % cols, rr = (i / cols) | 0;
+    if (cc < c0) c0 = cc;
+    if (cc > c1) c1 = cc;
+    if (rr < r0) r0 = rr;
+    if (rr > r1) r1 = rr;
+  }
+  if (sh.tool === 'select') {
+    state.selection = cells.length ? { c0, r0, c1, r1 } : null;
+    invalidateOverlay('all');
+    refreshSelectionUI();
+    drawOverlay();
+    return;
+  }
+  let delta = 0;
+  for (let k = 0; k < cells.length; k++) {
+    const i = cells[k];
+    if (g[i] !== sh.value) { g[i] = sh.value; delta += sh.value ? 1 : -1; }
+  }
+  if (c1 >= c0) noteRect(c0, r0, c1, r1);
+  commitPaint(delta);
+  invalidateOverlay('all');
+  drawOverlay();
+}
 
 function normPoint(clientX, clientY) {
   const rect = activeCanvas().getBoundingClientRect();
@@ -3019,8 +3473,8 @@ function paintBlock(c, r, value) {
   const cols = state.cols, g = state.grid;
   let delta = 0, c0 = Infinity, r0 = Infinity, c1 = -Infinity, r1 = -Infinity;
   for (let k = 0; k < cells.length; k++) {
-    const cc = cells[k][0], rr = cells[k][1];
-    const i = rr * cols + cc;
+    const i = cells[k];
+    const cc = i % cols, rr = (i / cols) | 0;
     if (g[i] !== value) { g[i] = value; delta += value ? 1 : -1; }
     if (cc < c0) c0 = cc;
     if (cc > c1) c1 = cc;
@@ -3043,10 +3497,10 @@ function paintLine(a, b, value) {
 function commitPaint(delta) {
   if (paintRect && gpu.active) gpuPushRect(paintRect.c0, paintRect.r0, paintRect.c1, paintRect.r1);
   paintRect = null;
-  if (!delta) return;
   state.live += delta;
   updateStats();
   scheduleDraw();
+  drawMinimap(true);
 }
 function startPinch() {
   const pts = [...pointers.values()];
@@ -3109,6 +3563,13 @@ function setupPointer(el) {
 
     const cell = cellAt(e.clientX, e.clientY);
     strokeValue = state.grid[cell.r * state.cols + cell.c] === 1 ? 0 : 1;
+    if (state.tool !== 'brush') {
+      const w = worldAt(e.clientX, e.clientY);
+      shaping = { tool: state.tool, a: w, b: w, value: strokeValue, cells: null };
+      invalidateOverlay('shape');
+      drawOverlay();
+      return;
+    }
     painting = true;
     lastCell = cell;
     commitPaint(paintBlock(cell.c, cell.r, strokeValue));
@@ -3132,6 +3593,19 @@ function setupPointer(el) {
       return;
     }
 
+    if (shaping) {
+      e.preventDefault();
+      const w = worldAt(e.clientX, e.clientY);
+      if (w.x !== shaping.b.x || w.y !== shaping.b.y) {
+        shaping.b = w;
+        shaping.cells = null;
+        invalidateOverlay('shape');
+      }
+      hover = cellAt(e.clientX, e.clientY);
+      drawReticle();
+      scheduleOverlay();
+      return;
+    }
     if (painting) {
       e.preventDefault();
       const cell = cellAt(e.clientX, e.clientY);
@@ -3148,6 +3622,7 @@ function setupPointer(el) {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
     if (pointers.size === 0) {
+      if (shaping) commitShape();
       painting = false; panning = false; lastCell = null; lastPan = null;
       gpu.hold = false;
       el.style.cursor = 'crosshair';
@@ -3330,6 +3805,8 @@ function setupUI() {
   bindPair('brushR', 'brushN', (v) => {
     state.brush = v % 2 ? v : v + 1;
     brushCache = { key: '', list: [] };
+    invalidateOverlay('all');
+    if (shaping) shaping.cells = null;
     drawOverlay();
   });
   $('lineMode').addEventListener('change', (e) => { state.lineMode = e.target.checked; });
@@ -3438,6 +3915,28 @@ function setupUI() {
     setupMaskPainting(k);
     renderPatternButtons(k);
   }
+  for (const btn of document.querySelectorAll('[data-masksync]')) {
+    btn.addEventListener('pointerdown', (e) => e.preventDefault());
+    btn.addEventListener('click', () => syncMasksFrom(btn.dataset.masksync));
+  }
+  for (const btn of document.querySelectorAll('[data-tool]')) {
+    btn.addEventListener('click', () => setTool(btn.dataset.tool));
+  }
+  $('fillShape').addEventListener('change', (e) => {
+    state.fillShape = e.target.checked;
+    if (shaping) shaping.cells = null;
+    invalidateOverlay('shape');
+    drawOverlay();
+  });
+  $('copyBtn').addEventListener('click', copySelection);
+  $('pasteBtn').addEventListener('click', pasteClipboard);
+  $('deselectBtn').addEventListener('click', () => {
+    state.selection = null;
+    invalidateOverlay('all');
+    refreshSelectionUI();
+    drawOverlay();
+  });
+  $('showMini').addEventListener('change', (e) => { state.minimap = e.target.checked; drawMinimap(true); });
   for (const btn of document.querySelectorAll('[data-preset]')) {
     btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
   }
@@ -3453,7 +3952,17 @@ function setupUI() {
     }
     const tag = document.activeElement && document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'c' || e.key === 'C') { e.preventDefault(); copySelection(); }
+      else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); pasteClipboard(); }
+      return;
+    }
     switch (e.key) {
+      case 'b': case 'B': e.preventDefault(); setTool('brush'); break;
+      case 'l': case 'L': e.preventDefault(); setTool('line'); break;
+      case 'x': case 'X': e.preventDefault(); setTool('select'); break;
+      case 'Escape': e.preventDefault(); state.selection = null; shaping = null;
+        invalidateOverlay('all'); refreshSelectionUI(); drawOverlay(); break;
       case ' ': e.preventDefault(); setRunning(!state.running); break;
       case 's': case 'S': e.preventDefault(); singleStep(); break;
       case 'r': case 'R': e.preventDefault(); fillRandom(); break;
@@ -3519,6 +4028,9 @@ function init() {
   quietEdits = true;
   setupUI();
   setupPanelResize();
+  setupMinimap();
+  setTool('brush');
+  refreshSelectionUI();
   setupPointer(canvas);
   setupPointer(gpuCanvas);
   buildLUTs();
