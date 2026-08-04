@@ -282,8 +282,8 @@ input:disabled{opacity:.4;cursor:not-allowed}
   background:rgba(4,6,10,.86);box-shadow:0 6px 18px rgba(0,0,0,.45);
   cursor:crosshair;touch-action:none;image-rendering:pixelated;
 }
-.seg.five{grid-template-columns:repeat(5,1fr)}
-.seg.five button{font-size:.7rem;padding:0 2px}
+.seg.tools{grid-template-columns:repeat(3,1fr)}
+.seg.tools button{font-size:.7rem;padding:0 2px}
 .hidden{display:none!important}
 .reticle{
   position:absolute;top:0;left:0;z-index:3;pointer-events:none;
@@ -345,6 +345,8 @@ input:disabled{opacity:.4;cursor:not-allowed}
   .rule-row,.rule-row.decay{min-height:38px}
   .stepper{grid-template-columns:minmax(0,1fr) 22px}
   .spin button{font-size:.5rem}
+  .team-pick{height:38px;font-size:.78rem}
+  .seg.tools button{min-height:38px}
   .swatches{grid-template-columns:1fr}
   .stats{gap:10px}
 }
@@ -409,17 +411,26 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <input id="densN" type="number" min="0" max="100" step="1" value="30" aria-label="Live density percent">
             </div>
             <button class="btn full" id="fillBtn" type="button">Fill grid now</button>
-            <p class="help">Fill and Clear both reset the generation count and all depletion.</p>
+            <p class="help">Fill and Clear both reset the generation count and all depletion, and neither changes whether the simulation is running.</p>
           </div>
 
           <div class="card">
             <h2 class="card-title">Tool</h2>
-            <div class="seg five" role="tablist" aria-label="Drawing tool">
+            <div class="seg tools" role="tablist" aria-label="Drawing tool">
               <button role="tab" type="button" data-tool="brush" aria-selected="true">Brush</button>
+              <button role="tab" type="button" data-tool="erase" aria-selected="false">Eraser</button>
+              <button role="tab" type="button" data-tool="spray" aria-selected="false">Spray</button>
+              <button role="tab" type="button" data-tool="fill" aria-selected="false">Fill</button>
               <button role="tab" type="button" data-tool="line" aria-selected="false">Line</button>
               <button role="tab" type="button" data-tool="rect" aria-selected="false">Box</button>
               <button role="tab" type="button" data-tool="ellipse" aria-selected="false">Oval</button>
               <button role="tab" type="button" data-tool="select" aria-selected="false">Select</button>
+              <button role="tab" type="button" data-tool="paste" aria-selected="false">Paste</button>
+            </div>
+            <div class="field hidden" id="sprayField">
+              <label for="sprayR">Spray density</label>
+              <input id="sprayR" type="range" min="1" max="100" step="1" value="8">
+              <input id="sprayN" type="number" min="1" max="100" step="1" value="8" aria-label="Spray density">
             </div>
             <div class="field check" id="fillField">
               <label for="fillShape">Fill the shape</label>
@@ -430,17 +441,21 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <span></span>
             </div>
             <div class="teams hidden" id="teamPick"></div>
+            <p class="help hidden" id="teamHelp">Tap to arm or disarm a colour, or use the number keys. Arm more than one and every drawn cell — brush, spray, fill, shapes and paste alike — picks from them at random.</p>
             <p class="help" id="toolHelp">Drag to paint. The first cell you touch decides whether the stroke writes live or dead.</p>
           </div>
 
           <div class="card">
             <h2 class="card-title">Selection <span class="chip" id="selChip">none</span></h2>
-            <div class="btn-row three">
+            <div class="btn-row">
               <button class="btn" id="copyBtn" type="button">Copy</button>
-              <button class="btn" id="pasteBtn" type="button">Paste</button>
               <button class="btn" id="deselectBtn" type="button">Clear</button>
             </div>
-            <p class="help">Select drags a box, Copy keeps its contents, Paste drops them at the selection's corner. On hexagons and triangles the paste point snaps to a cell of matching orientation so the shape survives.</p>
+            <div class="field check">
+              <label for="pasteTransparent">Transparent paste</label>
+              <input id="pasteTransparent" type="checkbox" checked>
+            </div>
+            <p class="help">Select drags a box and Copy keeps its shape. Drop it with the Paste tool, which follows the pointer and lands in whichever colours are currently armed. On hexagons and triangles the landing point snaps to a cell of matching orientation so the shape survives.</p>
           </div>
 
           <div class="card">
@@ -489,6 +504,8 @@ input:disabled{opacity:.4;cursor:not-allowed}
               <li><kbd>S</kbd>single step</li>
               <li><kbd>R</kbd>randomize<kbd>C</kbd>clear</li>
               <li><kbd>+ −</kbd>zoom<kbd>0</kbd>reset view</li>
+              <li><kbd>B</kbd>brush<kbd>E</kbd>eraser<kbd>K</kbd>spray<kbd>G</kbd>fill</li>
+              <li><kbd>L</kbd>line<kbd>X</kbd>select<kbd>V</kbd>paste</li>
               <li><kbd>drag</kbd>draw · <kbd>middle or right drag</kbd>pan · <kbd>wheel</kbd>zoom</li>
               <li><kbd>touch</kbd>one finger draws, two pan and pinch</li>
             </ul>
@@ -615,12 +632,16 @@ input:disabled{opacity:.4;cursor:not-allowed}
 
           <div class="card">
             <h2 class="card-title">Depletion threshold <span class="chip" id="thrChip">off</span></h2>
-            <div class="field">
-              <label for="thrR">Threshold</label>
-              <input id="thrR" type="range" min="0" max="100" step="1" value="0">
-              <input id="thrN" type="number" min="0" max="100" step="1" value="0" aria-label="Depletion threshold">
+            <div class="field check">
+              <label for="decayOn">Depletion active</label>
+              <input id="decayOn" type="checkbox">
             </div>
-            <p class="help">Every cell carries a reserve counter. At 0 the whole depletion pass is skipped. Above 0, any cell whose counter reaches the threshold is forced dead and stays dead until the counter falls back.</p>
+            <div class="field" id="thrField">
+              <label for="thrR">Threshold</label>
+              <input id="thrR" type="range" min="1" max="100" step="1" value="50">
+              <input id="thrN" type="number" min="1" max="100" step="1" value="50" aria-label="Depletion threshold">
+            </div>
+            <p class="help">Every cell carries a reserve counter. While this is off the whole depletion pass is skipped and costs nothing. While on, any cell whose counter reaches the threshold is forced dead and stays dead until the counter falls back.</p>
             <div class="field check">
               <label for="resetBirth">Clear a cell's counter when it is born</label>
               <input id="resetBirth" type="checkbox">
@@ -689,7 +710,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
             <div class="field check" id="oddField"><label for="oddDims">Odd size, one true centre cell</label><input id="oddDims" type="checkbox"></div>
             <div class="field check"><label for="wrapEdges">Wrap edges</label><input id="wrapEdges" type="checkbox" checked></div>
             <div class="field check"><label for="borders">Cell borders</label><input id="borders" type="checkbox" checked></div>
-            <div class="field check"><label for="centreOrigin">Read coordinates from centre</label><input id="centreOrigin" type="checkbox"></div>
+            <div class="field check"><label for="centreOrigin">Read coordinates from centre</label><input id="centreOrigin" type="checkbox" checked></div>
             <div class="field check"><label for="showMini">Show minimap</label><input id="showMini" type="checkbox" checked></div>
             <p class="help">Untick the link to set columns and rows yourself. Odd size trims a column and a row so the field has one exact middle cell. Resizing resamples what is already drawn.</p>
           </div>
@@ -1101,7 +1122,7 @@ const state = {
   cellSize: 10,
   linkGrid: true,
   oddDims: false,
-  centreOrigin: false,
+  centreOrigin: true,
   brush: 1,
   tool: 'brush',
   fillShape: true,
@@ -1118,19 +1139,22 @@ const state = {
   gen: 0, live: 0, spent: 0,
 
   clampMin: 0, clampMax: 100,
+  decayOn: false,
   topo: TOPOLOGIES.square,
   masks:   { birth: null, death: null, decay: null },
   offsets: { birth: null, death: null, decay: null },
   rates:   { birth: [], death: [], decay: [] },
   probs:   { birth: null, death: null, decay: null },
   decayDir: null,                 // Int8Array, +1 up / -1 down, per neighbour count
-  threshold: 0,
+  threshold: 50,
   resetOnBirth: false,
 
   adversaries: 1,
   tiePolicy: 'substitute',
   palette: ADVERSARY_DEFAULTS.slice(),
-  drawTeam: 0,
+  drawTeams: [true, false, false, false, false, false],
+  sprayDensity: 8,
+  pasteTransparent: true,
   advShade: 62,
   colours: { liveLo: '#ffffff', liveHi: '#ff9a00', deadLo: '#15151d', deadHi: '#0e2e63' },
   invertLive: false, invertDead: false, decayInfluence: 65,
@@ -1148,7 +1172,8 @@ const rules = {
   rates:   { birth: [], death: [], decay: [] },
   probs:   { birth: null, death: null, decay: null },
   decayDir: null,
-  threshold: 0,
+  decayOn: false,
+  threshold: 50,
   resetOnBirth: false,
   wrap: true,
   adversaries: 1,
@@ -1370,7 +1395,7 @@ function setTopology(id) {
     state.offsets[k] = buildOffsets(state.masks[k], state.cols);
     resizeRates(k, false);
   }
-  state.decayDir = new Int8Array(state.offsets.decay.n + 1).fill(1);
+  state.decayDir = defaultDecayDir(state.offsets.decay.n + 1);
   for (const k of KINDS) { renderPatternButtons(k); renderMask(k); renderRules(k); }
   quietEdits = false;
   state.selection = null;
@@ -1384,7 +1409,7 @@ function setTopology(id) {
      both the draft and the committed set directly. Only the pending edits that
      cannot survive the change (masks, and rates whose length just moved) are
      dropped; a staged threshold or wrap edit is still waiting for Apply. */
-  const KEEP = new Set(['threshold:value', 'wrap:edges', 'clamp:range',
+  const KEEP = new Set(['threshold:value', 'threshold:decayOn', 'wrap:edges', 'clamp:range',
                         'resetOnBirth:flag', 'birth:adversaries', 'birth:tie']);
   let dropped = 0;
   for (const key of [...pending.keys()]) if (!KEEP.has(key)) { pending.delete(key); dropped++; }
@@ -1486,7 +1511,7 @@ function setCellSize(px) {
 }
 function recount() {
   let live = 0, spent = 0;
-  const g = state.grid, a = state.accum, thr = rules.threshold;
+  const g = state.grid, a = state.accum, thr = decayThreshold();
   for (let i = 0; i < g.length; i++) {
     live += g[i];
     if (thr > 0 && a[i] >= thr) spent++;
@@ -1533,6 +1558,12 @@ function clearGrid() {
 
 /* ============================ rates ============================ */
 function clampRate(v) { return clampInt(v, state.clampMin, state.clampMax); }
+/** Nothing nearby means the reserve recovers; any neighbour spends it. */
+function defaultDecayDir(len) {
+  const dir = new Int8Array(len).fill(1);
+  if (len > 0) dir[0] = -1;
+  return dir;
+}
 
 function resizeRates(kind, conway) {
   const len = state.offsets[kind].n + 1;
@@ -1542,17 +1573,17 @@ function resizeRates(kind, conway) {
     let v;
     if (conway) v = kind === 'birth' ? (i === 3 ? 100 : 0)
               : kind === 'death' ? ((i === 2 || i === 3) ? 0 : 100)
-              : 0;
+              : 100;                                  // depletion always rolls
     else if (Number.isFinite(old[i])) v = old[i];
     else if (old.length) v = old[old.length - 1];
-    else v = kind === 'death' ? 100 : 0;
+    else v = kind === 'birth' ? 0 : 100;
     next[i] = clampRate(v);
   }
   state.rates[kind] = next;
 
   if (kind === 'decay') {
     const oldDir = state.decayDir;
-    const dir = new Int8Array(len).fill(1);
+    const dir = defaultDecayDir(len);
     if (oldDir && !conway) for (let i = 0; i < Math.min(len, oldDir.length); i++) dir[i] = oldDir[i];
     state.decayDir = dir;
   }
@@ -1571,7 +1602,7 @@ function step() {
   const grid = state.grid, next = state.next, acc = state.accum;
   const bO = rules.offsets.birth, dO = rules.offsets.death, cO = rules.offsets.decay;
   const bP = rules.probs.birth, dP = rules.probs.death, cP = rules.probs.decay;
-  const thr = rules.threshold, decayOn = thr > 0, dir = rules.decayDir;
+  const thr = decayThreshold(), decayOn = thr > 0, dir = rules.decayDir;
   const resetOnBirth = rules.resetOnBirth;
   const wrap = rules.wrap;
   const slow = wrap ? countWrap : countClip;
@@ -1804,7 +1835,7 @@ function paintCells(c0, r0, c1, r1) {
   const mode = state.colourMode;
   const wantRates = mode !== 'decay';
   const wantDecay = mode !== 'rates';
-  const thr = rules.threshold;
+  const thr = decayThreshold();
   const bR = rules.rates.birth, dR = rules.rates.death;
   const bO = rules.offsets.birth, dO = rules.offsets.death;
   const slow = rules.wrap ? countWrap : countClip;
@@ -2308,7 +2339,7 @@ const gpu = {
   params: new ArrayBuffer(352), pf: null, pu: null,
   seedCell: new Uint32Array(1), seed: 1,
   upload: null, mirror: null, mirrorGen: -1, oldDims: null, rowScratch: new Uint32Array(MAX_COLS),
-  rulesDirty: true, hold: false, gen: 0, retries: 0, tallyValid: false, recountPending: false,
+  rulesDirty: true, hold: 0, gen: 0, epoch: 0, retries: 0, tallyValid: false, recountPending: false,
   reads: { stats: { buf: null, busy: false, size: 0 }, state: { buf: null, busy: false, size: 0 } }
 };
 gpu.pf = new Float32Array(gpu.params);
@@ -2498,9 +2529,9 @@ function writeParams(vis) {
   pf[16] = state.view.x; pf[17] = state.view.y; pf[18] = vis.vw; pf[19] = vis.vh;
   const cw = gpuCanvas.width, ch = gpuCanvas.height, scale = cw / vis.vw;
   pf[20] = cw; pf[21] = ch; pf[22] = scale; pf[23] = state.borders && scale >= 5 ? 1 : 0;
-  pu[24] = state.cols; pu[25] = state.rows; pu[26] = rules.wrap ? 1 : 0; pu[27] = rules.threshold;
+  pu[24] = state.cols; pu[25] = state.rows; pu[26] = rules.wrap ? 1 : 0; pu[27] = decayThreshold();
   pu[28] = rules.resetOnBirth ? 1 : 0; pu[29] = gpu.seed >>> 0;
-  pu[30] = rules.threshold > 0 ? 1 : 0; pu[31] = COLOUR_MODES.indexOf(state.colourMode);
+  pu[30] = decayThreshold() > 0 ? 1 : 0; pu[31] = COLOUR_MODES.indexOf(state.colourMode);
   pu[32] = gpu.bases.birthOff0; pu[33] = rules.offsets.birth.n;
   pu[34] = gpu.bases.deathOff0; pu[35] = rules.offsets.death.n;
   pu[36] = gpu.bases.decayOff0; pu[37] = rules.offsets.decay.n;
@@ -2628,6 +2659,7 @@ function gpuReadback() {
   if (gpu.hold || painting) return;
   const d = gpu.device;
   const gen = gpu.gen;
+  const epoch = gpu.epoch;
   const atGen = state.gen;
   try {
     const enc = d.createCommandEncoder();
@@ -2645,12 +2677,17 @@ function gpuReadback() {
     if (stats) readInto(gpu.reads.stats, gen, (t) => {
       // A freshly created tally buffer reads as zero; ignore it until a step has
       // actually run, or the counters flash 0 after every reallocation.
-      if (!gpu.tallyValid) return;
+      if (!gpu.tallyValid || epoch !== gpu.epoch) return;
       state.live = t[0];
-      state.spent = rules.threshold > 0 ? t[1] : 0;
+      state.spent = decayThreshold() > 0 ? t[1] : 0;
       updateStats();
     });
     if (snap) readInto(gpu.reads.state, gen, (data) => {
+      // Discard anything that was already in flight when the CPU last wrote the
+      // buffer. Without this, a snapshot submitted before Clear lands after it
+      // and resurrects the pre-clear field into the mirror — which the next
+      // brush stroke then pushes straight back to the device.
+      if (epoch !== gpu.epoch) return;
       if (!gpu.mirror || data.length !== gpu.mirror.length) return;
       gpu.mirror.set(data);
       gpu.mirrorGen = atGen;
@@ -2664,16 +2701,23 @@ function gpuReadback() {
   } catch (err) { recoverGPU(err.message || String(err)); }
 }
 
+/* The hold is a counter, not a flag. A readback, a brush stroke and a paste can
+   all want the simulation frozen at once, and with a boolean whichever finished
+   first would unfreeze it underneath the others. */
+function holdGPU() { gpu.hold++; }
+function releaseGPU() { if (gpu.hold > 0) gpu.hold--; }
+
 /** Hold the simulation and read the device buffer back for real, rather than
     settling for the last asynchronous snapshot. gpuSyncDown alone is only ever
     approximate — bounded to a generation or two, which is fine for deciding a
     brush stroke, but not for saving a file, copying a region, or any operation
     that pushes the WHOLE buffer back afterwards, where a stale mirror would
-    quietly rewind live state and colours. Callers must clear gpu.hold. */
+    quietly rewind live state and colours. Callers must call releaseGPU(). */
 function gpuReadExact() {
   if (!gpu.active || !gpu.device || !gpu.cells) return Promise.resolve(false);
   const d = gpu.device;
-  gpu.hold = true;
+  holdGPU();
+  const epoch = gpu.epoch;
   return new Promise((resolve) => {
     let buf = null;
     try {
@@ -2683,18 +2727,24 @@ function gpuReadExact() {
       d.queue.submit([enc.finish()]);
       const atGen = state.gen;
       buf.mapAsync(GPUMapMode.READ).then(() => {
+        // If the CPU wrote the buffer while this read was in flight — a brush
+        // stroke, a paste, a Clear — the snapshot predates those edits, and
+        // applying it would silently undo them a few frames after they appear.
+        const fresh = epoch === gpu.epoch;
         try {
-          const data = new Uint32Array(buf.getMappedRange());
-          if (gpu.mirror && data.length === gpu.mirror.length) {
-            gpu.mirror.set(data);
-            gpu.mirrorGen = atGen;
+          if (fresh) {
+            const data = new Uint32Array(buf.getMappedRange());
+            if (gpu.mirror && data.length === gpu.mirror.length) {
+              gpu.mirror.set(data);
+              gpu.mirrorGen = atGen;
+            }
           }
         } finally {
           try { buf.unmap(); } catch (e) { /* device may be gone */ }
         }
-        gpuSyncDown();
+        if (fresh) gpuSyncDown();
         try { buf.destroy(); } catch (e) { /* already gone */ }
-        resolve(true);
+        resolve(fresh);
       }).catch(() => { try { buf.destroy(); } catch (e) {} resolve(false); });
     } catch (err) {
       if (buf) { try { buf.destroy(); } catch (e) {} }
@@ -2724,19 +2774,36 @@ function gpuPush() {
   gpu.device.queue.writeBuffer(stateBuf(), 0, buf);
   gpu.mirror.set(buf);
   gpu.mirrorGen = state.gen;
+  gpu.epoch++;
 }
-/** Push one edited rectangle up (rows are contiguous, so one write each). */
-function gpuPushRect(c0, r0, c1, r1) {
-  if (!gpu.active || !gpu.device) return;
-  const cols = state.cols, w = c1 - c0 + 1;
+/** Push exactly the edited cells, grouped into contiguous runs. Pushing a
+    bounding rectangle instead would drag along every untouched cell inside it,
+    rewriting them from whatever the CPU mirror happened to hold — which turns
+    any staleness into visible debris around a brush stroke. */
+function gpuPushCells(list) {
+  if (!gpu.active || !gpu.device || !list.length) return;
+  list.sort((a, b) => a - b);
+  let w = 0;
+  for (let k = 0; k < list.length; k++) if (k === 0 || list[k] !== list[k - 1]) list[w++] = list[k];
+  list.length = w;
+
   const g = state.grid, a = state.accum, col = state.colour, buf = stateBuf();
-  for (let r = r0; r <= r1; r++) {
-    const base = r * cols + c0;
-    const row = gpu.rowScratch.subarray(0, w);
-    for (let i = 0; i < w; i++) { row[i] = packCell(g[base + i], col[base + i], a[base + i]); }
-    gpu.device.queue.writeBuffer(buf, base * 4, row);
-    if (gpu.mirror) gpu.mirror.set(row, base);
+  const scratch = gpu.upload;
+  let i = 0;
+  while (i < list.length) {
+    let j = i;
+    while (j + 1 < list.length && list[j + 1] === list[j] + 1) j++;
+    const start = list[i], len = j - i + 1;
+    const run = scratch.subarray(0, len);
+    for (let k = 0; k < len; k++) {
+      const idx = start + k;
+      run[k] = packCell(g[idx], col[idx], a[idx]);
+    }
+    gpu.device.queue.writeBuffer(buf, start * 4, run);
+    if (gpu.mirror) gpu.mirror.set(run, start);
+    i = j + 1;
   }
+  gpu.epoch++;
 }
 
 function activateGPU() {
@@ -2753,7 +2820,7 @@ function deactivateGPU() {
   if (!gpu.active) return;
   gpuSyncDown();
   gpu.active = false;
-  gpu.hold = false;
+  gpu.hold = 0;
   gpuCanvas.classList.add('canvas-off');
   canvas.classList.remove('canvas-off');
   refreshEngineUI();
@@ -2799,7 +2866,7 @@ async function setBackend(mode) {
     b.setAttribute('aria-selected', String(b.dataset.engine === mode));
   }
   if (mode === 'cpu') {
-    if (gpu.active) { await gpuReadExact(); gpu.hold = false; }
+    if (gpu.active) { await gpuReadExact(); releaseGPU(); }
     deactivateGPU();
   }
   else if (gpu.ready) activateGPU();
@@ -2847,6 +2914,7 @@ function commitRules() {
   }
   rules.decayDir = state.decayDir.slice();
   rules.threshold = state.threshold;
+  rules.decayOn = state.decayOn;
   rules.resetOnBirth = state.resetOnBirth;
   rules.wrap = state.wrap;
   rules.adversaries = state.adversaries;
@@ -2878,6 +2946,8 @@ function revertRules() {
   }
   state.decayDir = rules.decayDir.slice();
   state.threshold = rules.threshold;
+  state.decayOn = rules.decayOn;
+  $('decayOn').checked = state.decayOn;
   state.resetOnBirth = rules.resetOnBirth;
   state.wrap = rules.wrap;
   state.adversaries = rules.adversaries;
@@ -2889,6 +2959,7 @@ function revertRules() {
   ui.adversaries.set(state.adversaries);
   syncAdversaryUI();
   ui.threshold.set(state.threshold);
+  syncDecayUI();
   $('resetBirth').checked = state.resetOnBirth;
   $('wrapEdges').checked = state.wrap;
   for (const k of KINDS) { renderMask(k); renderRules(k); }
@@ -2914,12 +2985,16 @@ function refreshPendingUI() {
 }
 
 /* ============================ determinism ============================ */
+/** The threshold the simulation actually uses — zero while depletion is off,
+    which is what every consumer already treats as "skip the whole pass". */
+function decayThreshold() { return rules.decayOn ? rules.threshold : 0; }
+
 function fractionalRates() {
   let n = 0;
   const scan = (arr) => { for (const v of arr) if (v > 0 && v < 100) n++; };
   scan(rules.rates.birth);
   scan(rules.rates.death);
-  if (rules.threshold > 0) scan(rules.rates.decay);
+  if (decayThreshold() > 0) scan(rules.rates.decay);
   if (rules.adversaries > 1 && rules.tiePolicy === 'random') n++;
   return n;
 }
@@ -2973,7 +3048,7 @@ function updateStats() {
   $('sizeStat').textContent = state.cols + '×' + state.rows;
   $('gridChip').textContent = state.cols + ' × ' + state.rows;
   $('zoomStat').textContent = state.view.zoom.toFixed(2) + '×';
-  const on = rules.threshold > 0;
+  const on = decayThreshold() > 0;
   $('spentStat').classList.toggle('off', !on);
   $('spentVal').textContent = on ? fmt(state.spent) : '—';
 }
@@ -3292,15 +3367,18 @@ function applyPreset(name) {
     const fn = p[k];
     state.rates[k] = Array.from({ length: len }, (_, i) => (fn ? clampRate(fn(i)) : 0));
     if (k === 'decay') {
-      state.decayDir = new Int8Array(len).fill(1);
+      state.decayDir = defaultDecayDir(len);
       if (p.dir) for (let i = 0; i < len; i++) state.decayDir[i] = p.dir(i) < 0 ? -1 : 1;
     }
     syncProbs(k);
     renderMask(k);
     renderRules(k);
   }
-  state.threshold = p.threshold || 0;
+  state.decayOn = !!p.threshold;
+  state.threshold = p.threshold || 50;
+  $('decayOn').checked = state.decayOn;
   ui.threshold.set(state.threshold);
+  syncDecayUI();
   syncClampChip();
   quietEdits = false;
   noteChange('birth:preset', 'preset "' + name + '"');
@@ -3347,6 +3425,27 @@ function attachStepper(input) {
   }
   wrap.append(spin);
 }
+
+/* ============================ drawing colour ============================
+
+   More than one colour can be armed at once, in which case each drawn cell
+   picks from the armed set at random. This is an editing convenience, not a
+   rule — the simulation never consults it — so it deliberately does not make
+   the configuration stochastic. */
+let armedTeams = [0];
+function refreshArmedTeams() {
+  const n = Math.max(1, rules.adversaries);
+  armedTeams = [];
+  for (let i = 0; i < n && i < MAX_ADVERSARIES; i++) if (state.drawTeams[i]) armedTeams.push(i);
+  if (!armedTeams.length) { state.drawTeams[0] = true; armedTeams = [0]; }
+}
+function pickDrawTeam() {
+  if (rules.adversaries <= 1) return 0;
+  return armedTeams.length === 1 ? armedTeams[0]
+    : armedTeams[(Math.random() * armedTeams.length) | 0];
+}
+/** True when the cell already belongs to one of the armed colours. */
+function isArmed(team) { return rules.adversaries <= 1 || !!state.drawTeams[team]; }
 
 /* ============================ brush shape ============================ */
 
@@ -3491,10 +3590,15 @@ function drawOverlay() {
   if (shaping) {
     if (!shapePath) shapePath = outlinePath(previewCells());
     trace(shapePath, state.tool === 'select' ? 'rgba(160,107,255,.95)' : 'rgba(255,255,255,.95)');
-  } else if (hover && state.tool === 'brush' && state.brush > 1) {
+  } else if (hover && state.tool === 'paste' && clipboard && clipboard.topo === topo().id) {
+    const anchor = pasteTargetAt(hover);
+    const key = 'paste:' + anchor.c + ':' + anchor.r + ':' + state.pasteTransparent;
+    if (key !== brushKey) { brushKey = key; brushPath = outlinePath(pastePreviewCells(anchor)); }
+    trace(brushPath, rules.adversaries > 1 ? state.palette[armedTeams[0]] : 'rgba(160,107,255,.95)');
+  } else if (hover && (state.tool === 'brush' || state.tool === 'erase') && state.brush > 1) {
     const key = hover.c + ':' + hover.r + ':' + state.brush + ':' + topo().id;
     if (key !== brushKey) { brushKey = key; brushPath = outlinePath(brushCells(hover.c, hover.r)); }
-    trace(brushPath, rules.adversaries > 1 ? state.palette[state.drawTeam] : 'rgba(255,255,255,.95)');
+    trace(brushPath, rules.adversaries > 1 ? state.palette[armedTeams[0]] : 'rgba(255,255,255,.95)');
   }
   octx.restore();
 }
@@ -3613,18 +3717,104 @@ function shapeCells(sh) {
   });
 }
 
+/** Scatter within the brush footprint. Holding still keeps building up, which
+    is the whole point of an airbrush, so it repeats on a frame timer rather
+    than only on pointer movement. */
+function paintSpray(c, r, value) {
+  const cells = brushCells(c, r);
+  if (!cells.length) return 0;
+  const cols = state.cols, g = state.grid, col = state.colour;
+  const p = state.sprayDensity / 100;
+  let delta = 0;
+  for (let k = 0; k < cells.length; k++) {
+    if (Math.random() >= p) continue;
+    const i = cells[k];
+    if (g[i] !== value) { g[i] = value; delta += value ? 1 : -1; }
+    col[i] = value ? pickDrawTeam() : 0;
+    noteCell(i);
+  }
+  return delta;
+}
+let sprayTick = null;
+function startSpray() {
+  if (sprayTick !== null) return;
+  const run = () => {
+    sprayTick = null;
+    if (!painting || state.tool !== 'spray' || !hover) return;
+    commitPaint(paintSpray(hover.c, hover.r, strokeValue));
+    sprayTick = requestAnimationFrame(run);
+  };
+  sprayTick = requestAnimationFrame(run);
+}
+function stopSpray() {
+  if (sprayTick !== null) cancelAnimationFrame(sprayTick);
+  sprayTick = null;
+}
+
+/** Contiguous region sharing the seed's state — and, with adversaries in play,
+    its colour. Connectivity comes from the topology's edge adjacency, so it
+    follows hexagon and triangle edges rather than a square assumption, and it
+    crosses the seam when the world wraps. */
+function floodCells(seedC, seedR) {
+  const cols = state.cols, rows = state.rows, g = state.grid, col = state.colour;
+  const t = topo(), wrap = rules.wrap;
+  const start = seedR * cols + seedC;
+  const wantAlive = g[start];
+  const wantTeam = rules.adversaries > 1 && wantAlive ? col[start] : -1;
+  const seen = new Uint8Array(cols * rows);
+  const adj = new Int32Array(12);
+  const out = [], stack = [start];
+  seen[start] = 1;
+  while (stack.length) {
+    const i = stack.pop();
+    out.push(i);
+    const c = i % cols, r = (i / cols) | 0;
+    const n = t.edgeAdjInto(c, r, adj);
+    for (let e = 0; e < n; e++) {
+      let nc = adj[e * 2], nr = adj[e * 2 + 1];
+      if (wrap) {
+        if (nr < 0) nr += rows; else if (nr >= rows) nr -= rows;
+        if (nc < 0) nc += cols; else if (nc >= cols) nc -= cols;
+      } else if (nc < 0 || nc >= cols || nr < 0 || nr >= rows) continue;
+      const j = nr * cols + nc;
+      if (seen[j] || g[j] !== wantAlive) continue;
+      if (wantTeam >= 0 && col[j] !== wantTeam) continue;
+      seen[j] = 1;
+      stack.push(j);
+    }
+  }
+  return out;
+}
+function floodFill(seedC, seedR, value) {
+  const cells = floodCells(seedC, seedR);
+  const g = state.grid, col = state.colour;
+  let delta = 0;
+  for (let k = 0; k < cells.length; k++) {
+    const i = cells[k];
+    if (g[i] !== value) { g[i] = value; delta += value ? 1 : -1; }
+    col[i] = value ? pickDrawTeam() : 0;
+    noteCell(i);
+  }
+  return delta;
+}
+
 function setTool(id) {
   state.tool = id;
   for (const b of document.querySelectorAll('[data-tool]')) {
     b.setAttribute('aria-selected', String(b.dataset.tool === id));
   }
-  $('fillField').classList.toggle('off', id === 'brush' || id === 'line' || id === 'select');
+  const shapeTool = id === 'rect' || id === 'ellipse';
+  $('fillField').classList.toggle('off', !shapeTool);
+  $('sprayField').classList.toggle('hidden', id !== 'spray');
   invalidateOverlay('all');
-  $('toolHelp').textContent = id === 'brush'
-    ? 'Drag to paint. The first cell you touch decides whether the stroke writes live or dead.'
-    : id === 'select'
-      ? 'Drag a box to select. The brush size sets nothing here — only the box matters.'
-      : 'Drag from one corner to the other. Release to commit; the outline previews exactly which cells change. Brush size sets the line thickness.';
+  $('toolHelp').textContent =
+    id === 'brush' ? 'Drag to paint. The first cell you touch decides whether the stroke writes live or dead.'
+    : id === 'erase' ? 'Always clears, whatever it touches — no need to start on a live cell.'
+    : id === 'paste' ? 'Moves the copied patch under the pointer and drops it on click. The outline shows exactly what will land.'
+    : id === 'spray' ? 'Scatters inside the brush footprint and keeps building while you hold, so density comes from how long you linger.'
+    : id === 'fill' ? 'Fills the connected run of cells matching whatever you click — same live/dead state, and same colour when adversaries are on.'
+    : id === 'select' ? 'Drag a box to select. The brush size sets nothing here — only the box matters.'
+    : 'Drag from one corner to the other. Release to commit; the outline previews exactly which cells change. Brush size sets the line thickness.';
   drawOverlay();
 }
 
@@ -3649,7 +3839,7 @@ let clipboard = null;
 async function copySelection() {
   const s = state.selection;
   if (!s) return;
-  if (gpu.active) { await gpuReadExact(); gpu.hold = false; }
+  if (gpu.active) { await gpuReadExact(); releaseGPU(); }
   const cells = [];
   for (let r = s.r0; r <= s.r1; r++) {
     for (let c = s.c0; c <= s.c1; c++) {
@@ -3659,39 +3849,67 @@ async function copySelection() {
   }
   // Orientation matters on hexagons and triangles: a patch only keeps its shape
   // if it lands on an anchor with the same parity it was lifted from.
-  clipboard = { cells, parity: parityOfCell(s.r0, s.c0), topo: topo().id };
+  clipboard = { cells, parity: parityOfCell(s.r0, s.c0), topo: topo().id,
+                w: s.c1 - s.c0 + 1, h: s.r1 - s.r0 + 1,
+                live: cells.reduce((n, c) => n + (c[2] ? 1 : 0), 0) };
   refreshSelectionUI();
 }
-function pasteClipboard() {
-  if (!clipboard) return;
-  if (clipboard.topo !== topo().id) return;
-  const anchor = state.selection
-    ? { c: state.selection.c0, r: state.selection.r0 }
-    : (hover || { c: 0, r: 0 });
-  let ac = anchor.c, ar = anchor.r;
+/** Where a paste would land: the selection corner for the button, or centred on
+    the pointer for the Paste tool. Snapped to a cell of the orientation the
+    patch was lifted from, so its shape survives on hexagons and triangles. */
+function pasteAnchor(at) {
+  if (!clipboard) return null;
+  let ac = at.c, ar = at.r;
   if (parityOfCell(ar, ac) !== clipboard.parity) {
     if (state.topo.parityMode === 1) ar += (ar + 1 < state.rows) ? 1 : -1;
     else ac += (ac + 1 < state.cols) ? 1 : -1;
   }
-  if (gpu.active) { gpu.hold = true; gpuSyncDown(); }
-  let delta = 0, c0 = Infinity, r0 = Infinity, c1 = -Infinity, r1 = -Infinity;
-  for (const [dc, dr, alive, acc, team] of clipboard.cells) {
+  return { c: ac, r: ar };
+}
+function pasteTargetAt(cell) {
+  if (!clipboard || !cell) return null;
+  return pasteAnchor({ c: cell.c - (clipboard.w >> 1), r: cell.r - (clipboard.h >> 1) });
+}
+/** Cells a paste would actually write, for the preview outline. With transparent
+    paste on that is the live cells only, so the outline is a wireframe of the
+    shape rather than the box it was lifted from. */
+function pastePreviewCells(anchor) {
+  if (!clipboard || !anchor) return [];
+  const out = [];
+  for (const [dc, dr, alive] of clipboard.cells) {
+    if (state.pasteTransparent && !alive) continue;
+    const c = anchor.c + dc, r = anchor.r + dr;
+    if (c < 0 || c >= state.cols || r < 0 || r >= state.rows) continue;
+    out.push(r * state.cols + c);
+  }
+  return out;
+}
+function pasteClipboard(target) {
+  if (!clipboard) return;
+  if (clipboard.topo !== topo().id) {
+    $('selChip').textContent = 'copied on a different tiling';
+    return;
+  }
+  const anchor = target || pasteAnchor(state.selection
+    ? { c: state.selection.c0, r: state.selection.r0 }
+    : (hover || { c: 0, r: 0 }));
+  let ac = anchor.c, ar = anchor.r;
+  if (gpu.active) { holdGPU(); gpuSyncDown(); }
+  let delta = 0;
+  for (const [dc, dr, alive, acc] of clipboard.cells) {
+    if (state.pasteTransparent && !alive) continue;   // dead cells leave the target alone
     const c = ac + dc, r = ar + dr;
     if (c < 0 || c >= state.cols || r < 0 || r >= state.rows) continue;
     const i = r * state.cols + c;
     if (state.grid[i] !== alive) { delta += alive ? 1 : -1; state.grid[i] = alive; }
     state.accum[i] = acc;
-    state.colour[i] = alive ? (team || 0) : 0;
-    if (c < c0) c0 = c;
-    if (c > c1) c1 = c;
-    if (r < r0) r0 = r;
-    if (r > r1) r1 = r;
+    state.colour[i] = alive ? pickDrawTeam() : 0;
+    noteCell(i);
   }
-  if (c1 >= c0) noteRect(c0, r0, c1, r1);
   commitPaint(delta);
   invalidateOverlay('all');
   drawOverlay();
-  gpu.hold = false;
+  if (gpu.active) releaseGPU();
 }
 
 /* ============================ minimap ============================ */
@@ -3835,7 +4053,7 @@ function drawReticle() {
   const show = (n) => (state.centreOrigin && n > 0 ? '+' + n : String(n));
   let text = show(x) + ', ' + show(y) + ' <i>' + (info.alive ? 'live' : 'dead') + '</i>';
   if (info.alive && rules.adversaries > 1) text += ' <u>#' + ((info.team | 0) + 1) + '</u>';
-  if (rules.threshold > 0) text += ' <b>' + info.acc + '/' + rules.threshold + '</b>';
+  if (decayThreshold() > 0) text += ' <b>' + info.acc + '/' + rules.threshold + '</b>';
   lab.innerHTML = text;
   lab.hidden = false;
 
@@ -3850,7 +4068,8 @@ function drawReticle() {
 /* ============================ pointer input ============================ */
 const pointers = new Map();
 let painting = false, panning = false, strokeValue = 1, lastCell = null, lastPan = null, pinch = null;
-let paintRect = null, shaping = null;
+const paintDirty = [];
+let shaping = null, strokeHeld = false;
 
 /** Turn the in-progress drag into cells: a selection box, or a painted shape. */
 function commitShape() {
@@ -3876,13 +4095,13 @@ function commitShape() {
     return;
   }
   let delta = 0;
-  const col = state.colour, team = sh.value ? sh.team : 0;
+  const col = state.colour;
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
     if (g[i] !== sh.value) { g[i] = sh.value; delta += sh.value ? 1 : -1; }
-    col[i] = team;
+    col[i] = sh.value ? pickDrawTeam() : 0;
+    noteCell(i);
   }
-  if (c1 >= c0) noteRect(c0, r0, c1, r1);
   commitPaint(delta);
   invalidateOverlay('all');
   drawOverlay();
@@ -3906,30 +4125,20 @@ function cellAt(clientX, clientY) {
     r: clampInt(cell.r, 0, state.rows - 1)
   };
 }
-function noteRect(c0, r0, c1, r1) {
-  if (!paintRect) { paintRect = { c0, r0, c1, r1 }; return; }
-  if (c0 < paintRect.c0) paintRect.c0 = c0;
-  if (r0 < paintRect.r0) paintRect.r0 = r0;
-  if (c1 > paintRect.c1) paintRect.c1 = c1;
-  if (r1 > paintRect.r1) paintRect.r1 = r1;
-}
+/** Cells touched since the last commit, so only those get shipped to the GPU. */
+function noteCell(i) { paintDirty.push(i); }
 function paintBlock(c, r, value) {
   const cells = brushCells(c, r);
   if (!cells.length) return 0;
   const cols = state.cols, g = state.grid, col = state.colour;
-  const team = value ? state.drawTeam : 0;
   let delta = 0, c0 = Infinity, r0 = Infinity, c1 = -Infinity, r1 = -Infinity;
   for (let k = 0; k < cells.length; k++) {
     const i = cells[k];
     const cc = i % cols, rr = (i / cols) | 0;
     if (g[i] !== value) { g[i] = value; delta += value ? 1 : -1; }
-    col[i] = team;
-    if (cc < c0) c0 = cc;
-    if (cc > c1) c1 = cc;
-    if (rr < r0) r0 = rr;
-    if (rr > r1) r1 = rr;
+    col[i] = value ? pickDrawTeam() : 0;
+    noteCell(i);
   }
-  noteRect(c0, r0, c1, r1);
   return delta;
 }
 function paintLine(a, b, value) {
@@ -3944,8 +4153,8 @@ function paintLine(a, b, value) {
 }
 function commitPaint(delta) {
   bumpRev();
-  if (paintRect && gpu.active) gpuPushRect(paintRect.c0, paintRect.r0, paintRect.c1, paintRect.r1);
-  paintRect = null;
+  if (paintDirty.length && gpu.active) gpuPushCells(paintDirty);
+  paintDirty.length = 0;
   state.live += delta;
   updateStats();
   scheduleDraw();
@@ -4008,17 +4217,33 @@ function setupPointer(el) {
     // Editing is a CPU operation: freeze the sim and bring the CPU arrays level
     // with the GPU. Only the painted rectangle is pushed back, so a snapshot
     // that is a generation behind can never clobber newer GPU state.
-    if (gpu.active) { gpu.hold = true; gpuSyncDown(); }
+    if (gpu.active) { holdGPU(); strokeHeld = true; gpuSyncDown(); }
 
     const cell = cellAt(e.clientX, e.clientY);
     const at = cell.r * state.cols + cell.c;
     // With adversaries in play, clicking a cell that belongs to another colour
     // converts it; clicking one of your own still erases.
-    strokeValue = state.grid[at] !== 1 ? 1
-      : (rules.adversaries > 1 && state.colour[at] !== state.drawTeam) ? 1 : 0;
-    if (state.tool !== 'brush') {
+    strokeValue = state.tool === 'erase' ? 0
+      : state.grid[at] !== 1 ? 1 : (isArmed(state.colour[at]) ? 0 : 1);
+    if (state.tool === 'paste') {
+      pasteClipboard(pasteTargetAt(cell));
+      return;
+    }
+    if (state.tool === 'fill') {
+      painting = true;
+      commitPaint(floodFill(cell.c, cell.r, strokeValue));
+      return;
+    }
+    if (state.tool === 'spray') {
+      painting = true;
+      lastCell = cell;
+      commitPaint(paintSpray(cell.c, cell.r, strokeValue));
+      startSpray();
+      return;
+    }
+    if (state.tool !== 'brush' && state.tool !== 'erase') {
       const w = worldAt(e.clientX, e.clientY);
-      shaping = { tool: state.tool, a: w, b: w, value: strokeValue, team: state.drawTeam, cells: null };
+      shaping = { tool: state.tool, a: w, b: w, value: strokeValue, cells: null };
       invalidateOverlay('shape');
       drawOverlay();
       return;
@@ -4059,7 +4284,12 @@ function setupPointer(el) {
       scheduleOverlay();
       return;
     }
-    if (painting) {
+    if (painting && state.tool === 'spray') {
+      e.preventDefault();
+      setHover(e.clientX, e.clientY);
+      return;
+    }
+    if (painting && (state.tool === 'brush' || state.tool === 'erase')) {
       e.preventDefault();
       const cell = cellAt(e.clientX, e.clientY);
       const delta = state.lineMode && lastCell
@@ -4076,8 +4306,9 @@ function setupPointer(el) {
     if (pointers.size < 2) pinch = null;
     if (pointers.size === 0) {
       if (shaping) commitShape();
+      stopSpray();
       painting = false; panning = false; lastCell = null; lastPan = null;
-      gpu.hold = false;
+      if (strokeHeld) { releaseGPU(); strokeHeld = false; }
       el.style.cursor = 'crosshair';
       if (e.pointerType !== 'mouse') clearHover();
     }
@@ -4177,16 +4408,19 @@ function buildSave(includeState) {
       masks: Object.fromEntries(KINDS.map((k) => [k, Array.from(rules.masks[k])])),
       rates: Object.fromEntries(KINDS.map((k) => [k, rules.rates[k].slice()])),
       decayDir: Array.from(rules.decayDir),
-      threshold: rules.threshold, resetOnBirth: rules.resetOnBirth, wrap: rules.wrap,
+      threshold: rules.threshold, decayOn: rules.decayOn,
+      resetOnBirth: rules.resetOnBirth, wrap: rules.wrap,
       clampMin: rules.clampMin, clampMax: rules.clampMax },
     adversaries: { v: 1, count: rules.adversaries, tie: rules.tiePolicy,
-                   palette: state.palette.slice(), shade: state.advShade, drawTeam: state.drawTeam },
+                   palette: state.palette.slice(), shade: state.advShade,
+                   drawTeams: state.drawTeams.slice() },
     colours: { v: 1, ...state.colours, invertLive: state.invertLive, invertDead: state.invertDead,
                mode: state.colourMode, decayInfluence: state.decayInfluence },
     display: { v: 1, borders: state.borders, centreOrigin: state.centreOrigin,
                minimap: state.minimap, fps: state.fps, frameSkip: state.frameSkip,
                density: state.density, brush: state.brush, lineMode: state.lineMode,
                liveApply: state.liveApply, tool: state.tool, fillShape: state.fillShape,
+               sprayDensity: state.sprayDensity, pasteTransparent: state.pasteTransparent,
                backend: state.backend, view: { ...state.view } }
   };
   if (includeState) {
@@ -4236,11 +4470,13 @@ function applySave(doc) {
         syncProbs(k);
       }
     }
-    state.decayDir = new Int8Array(state.offsets.decay.n + 1).fill(1);
+    state.decayDir = defaultDecayDir(state.offsets.decay.n + 1);
     if (r0.decayDir) for (let i = 0; i < state.decayDir.length; i++) {
       if (r0.decayDir[i] !== undefined) state.decayDir[i] = r0.decayDir[i] < 0 ? -1 : 1;
     }
-    state.threshold = clampInt(r0.threshold, 0, 100);
+    state.threshold = clampInt(r0.threshold, 1, 100);
+    state.decayOn = r0.decayOn !== undefined ? !!r0.decayOn : (r0.threshold > 0);
+    $('decayOn').checked = state.decayOn;
     state.resetOnBirth = !!r0.resetOnBirth;
     state.wrap = !!r0.wrap;
     state.clampMin = clampInt(r0.clampMin, 0, 100);
@@ -4248,6 +4484,7 @@ function applySave(doc) {
     ui.clampMin.set(state.clampMin);
     ui.clampMax.set(state.clampMax);
     ui.threshold.set(state.threshold);
+    syncDecayUI();
     $('resetBirth').checked = state.resetOnBirth;
     $('wrapEdges').checked = state.wrap;
   }
@@ -4259,7 +4496,12 @@ function applySave(doc) {
       for (let i = 0; i < Math.min(a0.palette.length, MAX_ADVERSARIES); i++) state.palette[i] = a0.palette[i];
     }
     if (Number.isFinite(a0.shade)) { state.advShade = clampInt(a0.shade, 0, 90); ui.advShade.set(state.advShade); }
-    state.drawTeam = clampInt(a0.drawTeam || 0, 0, MAX_ADVERSARIES - 1);
+    if (Array.isArray(a0.drawTeams)) {
+      for (let i = 0; i < MAX_ADVERSARIES; i++) state.drawTeams[i] = !!a0.drawTeams[i];
+    } else if (Number.isFinite(a0.drawTeam)) {          // files from before multi-select
+      for (let i = 0; i < MAX_ADVERSARIES; i++) state.drawTeams[i] = i === a0.drawTeam;
+    }
+    refreshArmedTeams();
     ui.adversaries.set(state.adversaries);
   }
   if (sec.colours && sec.colours.v <= 1) {
@@ -4295,6 +4537,11 @@ function applySave(doc) {
     ui.density.set(clampInt(d0.density, 0, 100));
     ui.brush.set(clampInt(d0.brush, 1, 51));
     if (typeof d0.fillShape === 'boolean') { state.fillShape = d0.fillShape; $('fillShape').checked = d0.fillShape; }
+    if (Number.isFinite(d0.sprayDensity)) ui.spray.set(clampInt(d0.sprayDensity, 1, 100));
+    if (typeof d0.pasteTransparent === 'boolean') {
+      state.pasteTransparent = d0.pasteTransparent;
+      $('pasteTransparent').checked = d0.pasteTransparent;
+    }
     if (d0.tool) setTool(d0.tool);
     if (d0.view && Number.isFinite(d0.view.zoom)) {
       state.view.zoom = clamp(d0.view.zoom, ZOOM_MIN, ZOOM_MAX);
@@ -4352,7 +4599,7 @@ async function saveToFile() {
   if (withState && gpu.active) {
     $('fileNote').textContent = 'Reading the field back from the GPU…';
     await gpuReadExact();
-    gpu.hold = false;
+    releaseGPU();
   }
   const doc = buildSave(withState);
   const blob = new Blob([JSON.stringify(doc, null, 1)], { type: 'application/json' });
@@ -4404,7 +4651,9 @@ function renderTeamPicker() {
   host.classList.toggle('hidden', !on);
   $('teamField').classList.toggle('hidden', !on);
   if (!on) return;
-  if (state.drawTeam >= n) state.drawTeam = 0;
+  $('teamHelp').classList.toggle('hidden', !on);
+  for (let i = n; i < MAX_ADVERSARIES; i++) state.drawTeams[i] = false;
+  refreshArmedTeams();
   const frag = document.createDocumentFragment();
   for (let i = 0; i < n; i++) {
     const b = document.createElement('button');
@@ -4412,18 +4661,29 @@ function renderTeamPicker() {
     b.className = 'team-pick';
     b.textContent = String(i + 1);
     b.style.background = state.palette[i];
-    b.setAttribute('aria-pressed', String(i === state.drawTeam));
+    b.setAttribute('aria-pressed', String(!!state.drawTeams[i]));
     b.setAttribute('aria-label', 'Draw as colour ' + (i + 1));
     b.addEventListener('pointerdown', (e) => e.preventDefault());
-    b.addEventListener('click', () => setDrawTeam(i));
+    b.addEventListener('click', () => setDrawTeams(i, 'toggle'));
     frag.append(b);
   }
   host.replaceChildren(frag);
 }
-function setDrawTeam(i) {
-  state.drawTeam = clampInt(i, 0, Math.max(0, state.adversaries - 1));
+/** Colours are plain toggles — no modifier, since a modifier is unreachable on
+    touch. The last armed colour can't be switched off; something has to be drawn. */
+function setDrawTeams(i, mode) {
+  const n = Math.max(1, state.adversaries);
+  if (i < 0 || i >= n) return;
+  if (mode === 'toggle') {
+    const armed = state.drawTeams.filter(Boolean).length;
+    if (state.drawTeams[i] && armed <= 1) return;
+    state.drawTeams[i] = !state.drawTeams[i];
+  } else {
+    for (let k = 0; k < MAX_ADVERSARIES; k++) state.drawTeams[k] = k === i;
+  }
+  refreshArmedTeams();
   for (const b of document.querySelectorAll('.team-pick')) {
-    b.setAttribute('aria-pressed', String(Number(b.textContent) - 1 === state.drawTeam));
+    b.setAttribute('aria-pressed', String(!!state.drawTeams[Number(b.textContent) - 1]));
   }
   invalidateOverlay('brush');
   drawOverlay();
@@ -4469,6 +4729,11 @@ function syncAdversaryUI() {
   renderTeamPicker();
 }
 
+function syncDecayUI() {
+  $('thrChip').textContent = state.decayOn ? 'at ' + state.threshold : 'off';
+  $('thrField').classList.toggle('off', !state.decayOn);
+  for (const id of ['thrR', 'thrN']) $(id).disabled = !state.decayOn;
+}
 function syncClampChip() {
   $('clampChip').textContent = state.clampMin + '–' + state.clampMax + '%';
 }
@@ -4604,7 +4869,7 @@ function setupUI() {
   $('playBtn').addEventListener('click', () => setRunning(!state.running));
   $('stepBtn').addEventListener('click', singleStep);
   $('randomBtn').addEventListener('click', () => fillRandom());
-  $('clearBtn').addEventListener('click', () => { setRunning(false); clearGrid(); });
+  $('clearBtn').addEventListener('click', clearGrid);
   $('fillBtn').addEventListener('click', () => fillRandom());
 
   /* panel fold */
@@ -4703,6 +4968,7 @@ function setupUI() {
     syncAdversaryUI();
     noteChange('birth:tie', 'tie-break policy');
   });
+  ui.spray = bindPair('sprayR', 'sprayN', (v) => { state.sprayDensity = v; });
   ui.advShade = bindPair('advShadeR', 'advShadeN', (v) => {
     state.advShade = v;
     buildLUTs();
@@ -4743,8 +5009,13 @@ function setupUI() {
   /* decay tab */
   ui.threshold = bindPair('thrR', 'thrN', (v) => {
     state.threshold = v;
-    $('thrChip').textContent = v === 0 ? 'off' : 'at ' + v;
+    syncDecayUI();
     noteChange('threshold:value', 'depletion threshold');
+  });
+  $('decayOn').addEventListener('change', (e) => {
+    state.decayOn = e.target.checked;
+    syncDecayUI();
+    noteChange('threshold:decayOn', 'depletion on/off');
   });
   $('resetBirth').addEventListener('change', (e) => {
     state.resetOnBirth = e.target.checked;
@@ -4756,7 +5027,7 @@ function setupUI() {
     if (gpu.active) await gpuReadExact();
     state.accum.fill(0);
     state.spent = 0;
-    if (gpu.active) { gpuPush(); gpu.hold = false; }
+    if (gpu.active) { gpuPush(); releaseGPU(); }
     bumpRev();
     updateStats();
     scheduleDraw();
@@ -4783,8 +5054,12 @@ function setupUI() {
     invalidateOverlay('shape');
     drawOverlay();
   });
+  $('pasteTransparent').addEventListener('change', (e) => {
+    state.pasteTransparent = e.target.checked;
+    invalidateOverlay('brush');
+    drawOverlay();
+  });
   $('copyBtn').addEventListener('click', copySelection);
-  $('pasteBtn').addEventListener('click', pasteClipboard);
   $('deselectBtn').addEventListener('click', () => {
     state.selection = null;
     invalidateOverlay('all');
@@ -4814,9 +5089,13 @@ function setupUI() {
     }
     switch (e.key) {
       case '1': case '2': case '3': case '4': case '5': case '6':
-        if (rules.adversaries > 1) { e.preventDefault(); setDrawTeam(Number(e.key) - 1); }
+        if (rules.adversaries > 1) { e.preventDefault(); setDrawTeams(Number(e.key) - 1, 'toggle'); }
         break;
       case 'b': case 'B': e.preventDefault(); setTool('brush'); break;
+      case 'k': case 'K': e.preventDefault(); setTool('spray'); break;
+      case 'g': case 'G': e.preventDefault(); setTool('fill'); break;
+      case 'e': case 'E': e.preventDefault(); setTool('erase'); break;
+      case 'v': case 'V': e.preventDefault(); setTool('paste'); break;
       case 'l': case 'L': e.preventDefault(); setTool('line'); break;
       case 'x': case 'X': e.preventDefault(); setTool('select'); break;
       case 'Escape': e.preventDefault(); state.selection = null; shaping = null;
@@ -4824,7 +5103,7 @@ function setupUI() {
       case ' ': e.preventDefault(); setRunning(!state.running); break;
       case 's': case 'S': e.preventDefault(); singleStep(); break;
       case 'r': case 'R': e.preventDefault(); fillRandom(); break;
-      case 'c': case 'C': e.preventDefault(); setRunning(false); clearGrid(); break;
+      case 'c': case 'C': e.preventDefault(); clearGrid(); break;
       case '+': case '=': e.preventDefault(); zoomAt(0.5, 0.5, 1.4); break;
       case '-': case '_': e.preventDefault(); zoomAt(0.5, 0.5, 1 / 1.4); break;
       case '0': e.preventDefault(); resetView(); break;
@@ -4881,7 +5160,7 @@ function init() {
   const { cols, rows } = gridDims(state.cellSize);
   allocate(cols, rows);
   for (const k of KINDS) resizeRates(k, true);
-  state.decayDir = new Int8Array(state.offsets.decay.n + 1).fill(1);
+  state.decayDir = defaultDecayDir(state.offsets.decay.n + 1);
 
   quietEdits = true;
   setupUI();
@@ -4895,6 +5174,7 @@ function init() {
   syncGradients();
   renderThemes();
   syncClampChip();
+  syncDecayUI();
   syncAdversaryUI();
   syncGridControls();
 
