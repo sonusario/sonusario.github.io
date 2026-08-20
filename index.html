@@ -104,7 +104,9 @@ button{touch-action:manipulation}
 .panel-head{display:flex;align-items:center;gap:8px;padding:8px var(--pad);border-bottom:1px solid var(--line)}
 .panel-title{font-size:.74rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .grip-hint{margin-left:auto;margin-right:14px;font-size:.62rem;color:var(--quiet);white-space:nowrap}
-.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:8px;border-bottom:1px solid var(--line)}
+.tabs{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;padding:8px;border-bottom:1px solid var(--line)}
+.tab[data-tab="audio"][aria-selected="true"]{box-shadow:inset 0 -2px 0 #ff6bd0}
+.tab{font-size:.7rem;padding:8px 1px}
 .tab{
   border:1px solid transparent;background:var(--sunk);color:var(--muted);border-radius:8px;
   padding:8px 2px;font-size:.75rem;font-weight:800;letter-spacing:.04em;cursor:pointer;
@@ -333,10 +335,12 @@ input:disabled{opacity:.4;cursor:not-allowed}
 }
 .side-panel .panel-body{padding:var(--pad) var(--pad) 20vh}
 .histmini{
-  position:absolute;right:10px;top:10px;z-index:5;
+  position:absolute;right:10px;top:56px;z-index:5;
   border:1px solid var(--line-hi);border-radius:6px;
   background:rgba(4,6,10,.86);box-shadow:0 6px 18px rgba(0,0,0,.45);
-  pointer-events:none;
+  /* Not pointer-events:none — that let clicks fall through and draw on the
+     field underneath. It swallows them instead. */
+  cursor:default;touch-action:none;
 }
 @media (max-width:880px){
   .side-panel{position:absolute;inset:0 0 0 auto;z-index:8;width:min(92vw,380px);box-shadow:-16px 0 34px rgba(0,0,0,.5)}
@@ -394,6 +398,11 @@ input:disabled{opacity:.4;cursor:not-allowed}
   box-shadow:0 6px 20px rgba(0,0,0,.5);
 }
 .app.folded .fab{display:grid}
+.fab-right{
+  position:absolute;top:18px;right:18px;z-index:6;display:grid;
+  box-shadow:0 6px 20px rgba(0,0,0,.5);
+}
+.fab-right[aria-pressed="true"]{background:var(--btn-hi);border-color:var(--muted)}
 .app.folded .panel{display:none}
 
 /* ---------- responsive ---------- */
@@ -433,7 +442,6 @@ input:disabled{opacity:.4;cursor:not-allowed}
       <button class="btn" id="stepBtn" type="button">Step</button>
       <button class="btn" id="randomBtn" type="button">Randomize</button>
       <button class="btn" id="clearBtn" type="button">Clear</button>
-      <button class="btn" id="histToggle" type="button" aria-pressed="false">History</button>
     </div>
   </header>
 
@@ -453,6 +461,7 @@ input:disabled{opacity:.4;cursor:not-allowed}
         <button class="tab" role="tab" type="button" data-tab="rules" aria-selected="false">Rules</button>
         <button class="tab" role="tab" type="button" data-tab="field" aria-selected="false">Field</button>
         <button class="tab" role="tab" type="button" data-tab="look" aria-selected="false">Look</button>
+        <button class="tab" role="tab" type="button" data-tab="audio" aria-selected="false">Audio</button>
       </nav>
 
       <div class="panel-scroll">
@@ -833,11 +842,61 @@ input:disabled{opacity:.4;cursor:not-allowed}
           </div>
         </section>
 
+        <!-- AUDIO: the field played rather than drawn -->
+        <section class="tab-panel" id="tab-audio" role="tabpanel">
+          <div class="card">
+            <h2 class="card-title">
+              <span>Sound <span class="chip" id="audioSig">—</span></span>
+              <label class="title-check" for="audioOn"><span>On</span><input id="audioOn" type="checkbox"></label>
+            </h2>
+            <p class="help" id="audioNote"></p>
+          </div>
+
+          <div id="audioBox" class="hidden">
+            <div class="card">
+              <h2 class="card-title">Mix</h2>
+              <div class="field">
+                <label for="audioVolR">Volume</label>
+                <input id="audioVolR" type="range" min="0" max="100" step="1" value="45">
+                <input id="audioVolN" type="number" min="0" max="100" step="1" value="45" aria-label="Volume">
+              </div>
+              <div class="field">
+                <label for="audioTempoR">Tempo</label>
+                <input id="audioTempoR" type="range" min="40" max="200" step="1" value="104">
+                <input id="audioTempoN" type="number" min="40" max="200" step="1" value="104" aria-label="Tempo">
+              </div>
+              <p class="help">Tempo is a base — a busier field pushes it faster, a sparse one drags it back, so the pace tracks what the rules are doing.</p>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title">Layers</h2>
+              <div class="field check"><label for="audioNotes">Melody from the field</label><input id="audioNotes" type="checkbox" checked></div>
+              <div class="field check"><label for="audioBass">Bass on the downbeat</label><input id="audioBass" type="checkbox" checked></div>
+              <div class="field check"><label for="audioDrums">Euclidean percussion</label><input id="audioDrums" type="checkbox" checked></div>
+              <div class="field check"><label for="audioAlways">Keep playing while paused</label><input id="audioAlways" type="checkbox"></div>
+              <p class="help">The drum pattern spreads its hits evenly across the bar — the same construction most world rhythms use, which is why it reads as a groove rather than a metronome. How many hits, and how long the bar is, come from the ruleset.</p>
+            </div>
+
+            <div class="card">
+              <h2 class="card-title">What the rules decide</h2>
+              <ul class="keys">
+                <li><kbd>key</kbd>and mode, from which neighbour counts breed and kill</li>
+                <li><kbd>timbre</kbd>from how many counts breed, and whether any rate is fractional</li>
+                <li><kbd>bar</kbd>length and hit count, from the mask size</li>
+                <li><kbd>swing</kbd>only when the ruleset is stochastic</li>
+                <li><kbd>snare</kbd>only when depletion is running</li>
+              </ul>
+              <p class="help">Change a preset and the piece changes with it. Applying rules re-reads all of the above.</p>
+            </div>
+          </div>
+        </section>
+
         <!-- LOOK: how the field is displayed, changing nothing about it -->
         <section class="tab-panel" id="tab-look" role="tabpanel">
           <div class="card">
             <h2 class="card-title">Colour source</h2>
-            <div class="seg three" role="tablist" aria-label="Colour source">
+            <div class="seg four" role="tablist" aria-label="Colour source">
+              <button role="tab" type="button" data-colour="classic" aria-selected="false">Classic</button>
               <button role="tab" type="button" data-colour="rates" aria-selected="true">Odds</button>
               <button role="tab" type="button" data-colour="decay" aria-selected="false">Depletion</button>
               <button role="tab" type="button" data-colour="combined" aria-selected="false">Both</button>
@@ -918,10 +977,41 @@ input:disabled{opacity:.4;cursor:not-allowed}
           </div>
 
           <div class="card">
+            <h2 class="card-title">Dither <span class="chip" id="ditherChip">off</span></h2>
+            <div class="field">
+              <label for="ditherSel">Pattern</label>
+              <select id="ditherSel" class="sel"></select>
+              <span></span>
+            </div>
+            <div id="ditherBox" class="hidden">
+              <div class="field">
+                <label for="ditherPalSel">Palette</label>
+                <select id="ditherPalSel" class="sel"></select>
+                <span></span>
+              </div>
+              <div class="field" id="ditherLevelField">
+                <label for="ditherLevR">Levels</label>
+                <input id="ditherLevR" type="range" min="2" max="32" step="1" value="4">
+                <input id="ditherLevN" type="number" min="2" max="32" step="1" value="4" aria-label="Levels per channel">
+              </div>
+              <div class="field">
+                <label for="ditherStrR">Strength</label>
+                <input id="ditherStrR" type="range" min="0" max="200" step="1" value="100">
+                <input id="ditherStrN" type="number" min="0" max="200" step="1" value="100" aria-label="Dither strength">
+              </div>
+              <div class="field check">
+                <label for="ditherBefore">Dither the cells, not the image</label>
+                <input id="ditherBefore" type="checkbox">
+              </div>
+              <p class="help" id="ditherNote"></p>
+              <p class="help">By default the pattern lands on screen pixels, where the scaled-up cells and the filter have produced real gradients to approximate. Ticked, it lands on the cells themselves instead — far coarser, and mainly useful when the filter is on to smear it.</p>
+            </div>
+          </div>
+
+          <div class="card">
             <h2 class="card-title">Overlays</h2>
             <div class="field check"><label for="borders">Cell borders</label><input id="borders" type="checkbox" checked></div>
             <div class="field check"><label for="showMini">Show minimap</label><input id="showMini" type="checkbox" checked></div>
-            <div class="field check"><label for="showHistMini">Pin history over the field</label><input id="showHistMini" type="checkbox"></div>
             <div class="field check"><label for="centreOrigin">Read coordinates from centre</label><input id="centreOrigin" type="checkbox" checked></div>
             <p class="help">None of these change the simulation — only how it is drawn and read.</p>
             <div class="field">
@@ -948,6 +1038,8 @@ input:disabled{opacity:.4;cursor:not-allowed}
 
     <section class="stage" id="stage">
       <button class="btn icon-btn fab" id="panelOpen" type="button" title="Show controls" aria-label="Show controls">☰</button>
+      <button class="btn icon-btn fab-right" id="histToggle" type="button" aria-pressed="false"
+              title="Show history" aria-label="Show history">☰</button>
       <div class="canvas-frame" id="frame">
         <canvas id="cv" aria-label="Cellular automaton field"></canvas>
         <canvas id="gv" class="canvas-off" aria-hidden="true"></canvas>
@@ -979,8 +1071,8 @@ input:disabled{opacity:.4;cursor:not-allowed}
 
     <aside class="side-panel hidden" id="histPanel" aria-label="History">
       <div class="panel-head">
+        <button class="icon-btn" id="histClose" type="button" title="Hide history" aria-label="Hide history">☰</button>
         <span class="panel-title">History</span>
-        <button class="icon-btn" id="histClose" type="button" aria-label="Hide history">✕</button>
       </div>
       <div class="panel-body">
             <div class="card">
@@ -990,6 +1082,10 @@ input:disabled{opacity:.4;cursor:not-allowed}
             <div class="btn-row">
               <button class="btn" id="chartClear" type="button">Clear</button>
               <button class="btn" id="chartSave" type="button">Save CSV</button>
+            </div>
+            <div class="field check">
+              <label for="showHistMini">Pin over the field</label>
+              <input id="showHistMini" type="checkbox">
             </div>
             <p class="help">One sample per painted frame, so both engines read the same way. Change is the shift in live cells since the previous sample, and can go below zero.</p>
             </div>
@@ -1350,11 +1446,14 @@ const state = {
   fillShape: true,
   selection: null,
   minimap: true,
+  audioOn: false, audioAlways: false, audioVolume: 45, audioTempo: 104,
+  audioNotes: true, audioBass: true, audioDrums: true,
   histMini: false,
   histOpen: false,
   gutter: 26,
   chartOn: { live: true, dead: false, spent: true, change: true },
   filterOn: false, filterSize: 3, filterMix: 100, sharpAmount: 0, sharpIterations: 1,
+  ditherMode: 'none', ditherLevels: 4, ditherPalette: 'full', ditherStrength: 100, ditherBefore: false,
   filterKernel: [0,0,0, 0,1,0, 0,0,0],
   lineMode: false,
   wrap: true,
@@ -1994,6 +2093,7 @@ function step() {
 let rafId = null, lastTime = 0, bank = 0;
 function setRunning(run) {
   state.running = !!run;
+  audioSync();
   const btn = $('playBtn');
   btn.textContent = state.running ? 'Pause' : 'Start';
   btn.classList.toggle('on', state.running);
@@ -2077,7 +2177,8 @@ function buildMetric(c0, r0, c1, r1) {
   metricBox = { c0, r0, c1, r1 };
 }
 
-const COLOUR_MODES = ['rates', 'decay', 'combined'];
+/* classic is a flat two-tone read of the theme; the rest shade by a metric. */
+const COLOUR_MODES = ['classic', 'rates', 'decay', 'combined'];
 const DQ = 21;                                   // depletion quantisation for the 2D LUT
 
 const THEMES = [
@@ -2090,7 +2191,9 @@ const THEMES = [
   { name: 'Moss',      liveLo: '#f0ffd8', liveHi: '#3fbf5f', deadLo: '#0a120b', deadHi: '#1a4227' },
   { name: 'Orchid',    liveLo: '#ffffff', liveHi: '#a06bff', deadLo: '#0c0916', deadHi: '#2f1a63' },
   { name: 'Blueprint', liveLo: '#ffffff', liveHi: '#7fc4ff', deadLo: '#061525', deadHi: '#0d4d90' },
-  { name: 'Rust',      liveLo: '#ffe9c7', liveHi: '#c43b1a', deadLo: '#13100c', deadHi: '#4d2611' }
+  { name: 'Rust',      liveLo: '#ffe9c7', liveHi: '#c43b1a', deadLo: '#13100c', deadHi: '#4d2611' },
+  { name: 'Copper',    liveLo: '#ff9d5c', liveHi: '#35c49a', deadLo: '#140e0a', deadHi: '#2f4c40' },
+  { name: 'Portal',    liveLo: '#ff9b21', liveHi: '#00a3ff', deadLo: '#05080e', deadHi: '#0a2f4d' }
 ];
 
 /** Endpoints honouring the per-gradient inversion toggles. */
@@ -2156,8 +2259,8 @@ function paintCells(c0, r0, c1, r1) {
   const grid = state.grid, acc = state.accum, colArr = state.colour, px = cellPix;
   const teams = rules.adversaries;
   const mode = state.colourMode;
-  const wantRates = mode !== 'decay';
-  const wantDecay = mode !== 'rates';
+  const wantRates = mode === 'rates' || mode === 'combined';
+  const wantDecay = mode === 'decay' || mode === 'combined';
   const thr = decayThreshold();
   const bR = rules.rates.birth, dR = rules.rates.death;
   const bO = rules.offsets.birth, dO = rules.offsets.death;
@@ -2171,7 +2274,7 @@ function paintCells(c0, r0, c1, r1) {
       const i = base + c;
       const alive = grid[i] === 1;
       const team = alive && teams > 1 ? colArr[i] : 0;
-      const t = wantRates ? metricArr[i] : 0;
+      const t = wantRates ? metricArr[i] : (mode === 'classic' && alive ? 100 : 0);
       const d = wantDecay && thr > 0 ? clamp(acc[i] / thr, 0, 1) : 0;
       if (mode === 'combined') {
         const q = Math.round(d * (DQ - 1));
@@ -2182,7 +2285,10 @@ function paintCells(c0, r0, c1, r1) {
       }
     }
   }
-  if (state.filterOn && !gpu.active) applyFilter(c0, r0, c1, r1);
+  if (!gpu.active) {
+    if (state.ditherBefore) applyDither(c0, r0, c1, r1);
+    if (state.filterOn) applyFilter(c0, r0, c1, r1);
+  }
 }
 
 function draw() {
@@ -2286,6 +2392,8 @@ function drawCPU() {
   if (!canvas.width || !canvas.height) return;
   if (topo().id === 'square') drawCPUSquare();
   else drawCPUPolygon();
+  // after the blit, so the pattern lands on screen pixels rather than cells
+  if (!state.ditherBefore) ditherScreen(ctx, canvas.width, canvas.height);
 }
 
 /** Polygon tilings can't use the one-pixel-per-cell blit, so cells are grouped
@@ -2421,6 +2529,10 @@ struct Params {
   filt : vec4<u32>,          // on, size, reserved, reserved
   kscale : vec4<f32>,        // depletion kernel normalisation in .x
   filtK : array<vec4<f32>, 157>,
+  dith : vec4<u32>,          // kind (0 off, 1 ordered, 2 random), matrix size, levels, palette count
+  dithS : vec4<f32>,         // strength
+  dithM : array<vec4<f32>, 16>,
+  dithP : array<vec4<f32>, 16>,
 };
 const HEX_V : f32 = 0.86602540378;
 const HEX_H : f32 = 1.15470053838;
@@ -2626,8 +2738,10 @@ fn shadeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
   let cell = src[idx];
   let alive = (cell & 1u) == 1u;
   var t : f32 = 0.0;
-  // flags.w: 0 = transition odds, 1 = depletion, 2 = combined
-  if (P.flags.w != 1u) {
+  // flags.w: 0 = classic, 1 = transition odds, 2 = depletion, 3 = combined
+  if (P.flags.w == 0u) {
+    t = select(0.0, 1.0, alive);
+  } else if (P.flags.w != 2u) {
     if (alive) {
       let n = countAt(i32(r), i32(c), P.offA.z, P.offD.y, P.offA.w);
       t = rates[P.offB.w + n];
@@ -2637,10 +2751,10 @@ fn shadeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
     }
   }
   var d : f32 = 0.0;
-  if (P.flags.w != 0u && P.dims.w > 0u) {
+  if (P.flags.w >= 2u && P.dims.w > 0u) {
     d = clamp(f32((cell >> 8u) & 255u) / f32(P.dims.w), 0.0, 1.0);
   }
-  if (P.flags.w == 1u) { t = d; }
+  if (P.flags.w == 2u) { t = d; }
   var lo = select(P.deadLo, P.liveLo, alive);
   var hi = select(P.deadHi, P.liveHi, alive);
   if (alive && P.misc.x > 1u) {
@@ -2650,7 +2764,7 @@ fn shadeMain(@builtin(global_invocation_id) gid : vec3<u32>) {
     hi = base * (1.0 - f32(P.misc.w) / 100.0);
   }
   var col = mix(lo, hi, t);
-  if (P.flags.w == 2u) {
+  if (P.flags.w == 3u) {
     col = col * (1.0 - d * (f32(P.offC.w) / 100.0));
   }
   tint[idx] = pack4x8unorm(vec4<f32>(col.x, col.y, col.z, 1.0));
@@ -2680,6 +2794,25 @@ const RENDER_WGSL = P_STRUCT + `
 fn vsMain(@builtin(vertex_index) vi : u32) -> @builtin(position) vec4<f32> {
   var pts = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
   return vec4<f32>(pts[vi], 0.0, 1.0);
+}
+fn dithMat(i : u32) -> f32 {
+  let q = P.dithM[i >> 2u];
+  let m = i & 3u;
+  if (m == 0u) { return q.x; }
+  if (m == 1u) { return q.y; }
+  if (m == 2u) { return q.z; }
+  return q.w;
+}
+/** Nearest palette entry by squared distance, matching nearestIn on the CPU. */
+fn nearestPal(c : vec3<f32>) -> vec3<f32> {
+  var best = P.dithP[0].xyz;
+  var bd = 1e9;
+  for (var i = 0u; i < P.dith.w; i = i + 1u) {
+    let p = P.dithP[i].xyz;
+    let d = dot(c - p, c - p);
+    if (d < bd) { bd = d; best = p; }
+  }
+  return best;
 }
 fn tintAt(ci : i32, ri : i32) -> vec3<f32> {
   let c = clamp(ci, 0, i32(P.dims.x) - 1);
@@ -2776,6 +2909,23 @@ fn fsMain(@builtin(position) fc : vec4<f32>) -> @location(0) vec4<f32> {
   if (P.screen.w > 0.5 && edge * P.screen.z < 1.0) {
     rgb = rgb * 0.55;
   }
+  // Dithering is a property of the displayed image, so it runs per screen
+  // pixel here rather than per cell — which is the only place it has enough
+  // resolution to trade for colour depth.
+  if (P.dith.x != 0u) {
+    var bias : f32;
+    if (P.dith.x == 1u) {
+      let n = P.dith.y;
+      bias = dithMat((u32(fc.y) % n) * n + (u32(fc.x) % n));
+    } else {
+      bias = fract(sin(dot(fc.xy, vec2<f32>(12.9898, 78.233))) * 43758.5453) - 0.5;
+    }
+    let levels = f32(max(2u, P.dith.z));
+    let spread = P.dithS.x / (levels - 1.0);
+    let shifted = clamp(rgb + vec3<f32>(bias * spread), vec3<f32>(0.0), vec3<f32>(1.0));
+    if (P.dith.w > 0u) { rgb = nearestPal(shifted); }
+    else { rgb = round(shifted * (levels - 1.0)) / (levels - 1.0); }
+  }
   return vec4<f32>(rgb, 1.0);
 }
 `;
@@ -2789,7 +2939,7 @@ const gpu = {
   device: null, ctx: null, format: null,
   stepPipe: null, shadePipe: null, renderPipe: null, resamplePipe: null,
   buf: {}, bg: {}, bases: {}, cells: 0, cur: 0,
-  params: new ArrayBuffer(2896), pf: null, pu: null,
+  params: new ArrayBuffer(3440), pf: null, pu: null,
   seedCell: new Uint32Array(1), seed: 1,
   upload: null, mirror: null, mirrorGen: -1, oldDims: null, rowScratch: new Uint32Array(MAX_COLS),
   rulesDirty: true, hold: 0, gen: 0, epoch: 0, retries: 0, tallyValid: false, recountPending: false,
@@ -3024,6 +3174,25 @@ function writeParams(vis) {
   pf[92] = rules.kernelScale;
   pf[93] = 0; pf[94] = 0; pf[95] = 0;
   for (let i = 0; i < 628; i++) pf[96 + i] = i < eff.size * eff.size ? eff.w[i] : 0;
+  // dith @2896 (4 u32), dithS @2912 (4 f32), dithM @2928 (16 vec4), dithP @3184 (16 vec4)
+  const dd = ditherDef();
+  const ordered = dd.kind === 'ordered', rnd = dd.kind === 'random';
+  const dpal = paletteCols();
+  pu[724] = ordered ? 1 : rnd ? 2 : 0;
+  pu[725] = ordered ? dd.n : 1;
+  pu[726] = Math.max(2, state.ditherLevels);
+  pu[727] = dpal ? Math.min(16, dpal.length) : 0;
+  pf[728] = state.ditherStrength / 100;
+  pf[729] = 0; pf[730] = 0; pf[731] = 0;
+  const mat = ordered ? BAYER[dd.n] : null;
+  for (let i = 0; i < 64; i++) pf[732 + i] = mat && i < mat.length ? mat[i] : 0;
+  for (let i = 0; i < 16; i++) {
+    const c = dpal && dpal[i] ? dpal[i] : [0, 0, 0];
+    pf[796 + i * 4] = c[0] / 255;
+    pf[797 + i * 4] = c[1] / 255;
+    pf[798 + i * 4] = c[2] / 255;
+    pf[799 + i * 4] = 1;
+  }
   gpu.device.queue.writeBuffer(gpu.buf.params, 0, gpu.params);
 }
 
@@ -3409,6 +3578,7 @@ function commitRules() {
   refreshDeterminism();
   if (!gpu.active) recount();
   bumpRev();
+  audioRefreshSignature();
   // A wrap change can invalidate the current dimensions, so re-normalise now
   // that the committed value has moved.
   if (typeof syncTopologyUI === 'function' && state.grid) {
@@ -3676,6 +3846,169 @@ function effectiveKernel() {
   return effCache;
 }
 
+/* ---------------- dithering ----------------
+   Two families, and they are not interchangeable. Ordered dithers decide each
+   pixel from its own coordinates, so they parallelise and run on either engine.
+   Error diffusion carries the rounding error forward to neighbours that have
+   not been drawn yet — inherently sequential, so it is CPU only and says so.
+   Reverse dithering goes the other way: it averages a dithered image back
+   toward the continuous tone it was standing in for. */
+function bayer(n) {
+  let m = [[0, 2], [3, 1]];
+  while (m.length < n) {
+    const s2 = m.length, out = [];
+    for (let r = 0; r < s2 * 2; r++) out.push(new Array(s2 * 2).fill(0));
+    for (let r = 0; r < s2; r++) for (let c = 0; c < s2; c++) {
+      const v = m[r][c] * 4;
+      out[r][c] = v;
+      out[r][c + s2] = v + 2;
+      out[r + s2][c] = v + 3;
+      out[r + s2][c + s2] = v + 1;
+    }
+    m = out;
+  }
+  const flat = new Float32Array(n * n);
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) flat[r * n + c] = m[r][c] / (n * n) - 0.5;
+  return flat;
+}
+const BAYER = { 2: bayer(2), 4: bayer(4), 8: bayer(8) };
+const DITHERS = [
+  { id: 'none',    label: 'None',      kind: 'none' },
+  { id: 'bayer2',  label: 'Bayer 2',   kind: 'ordered', n: 2 },
+  { id: 'bayer4',  label: 'Bayer 4',   kind: 'ordered', n: 4 },
+  { id: 'bayer8',  label: 'Bayer 8',   kind: 'ordered', n: 8 },
+  { id: 'noise',   label: 'White',     kind: 'random' },
+  { id: 'floyd',   label: 'Floyd',     kind: 'error', taps: [[1, 0, 7 / 16], [-1, 1, 3 / 16], [0, 1, 5 / 16], [1, 1, 1 / 16]] },
+  { id: 'jarvis',  label: 'Jarvis',    kind: 'error', taps: [[1, 0, 7 / 48], [2, 0, 5 / 48], [-2, 1, 3 / 48], [-1, 1, 5 / 48], [0, 1, 7 / 48], [1, 1, 5 / 48], [2, 1, 3 / 48], [-1, 2, 3 / 48], [0, 2, 5 / 48], [1, 2, 3 / 48]] },
+  { id: 'atkinson', label: 'Atkinson', kind: 'error', taps: [[1, 0, 1 / 8], [2, 0, 1 / 8], [-1, 1, 1 / 8], [0, 1, 1 / 8], [1, 1, 1 / 8], [0, 2, 1 / 8]] },
+  { id: 'burkes',  label: 'Burkes',    kind: 'error', taps: [[1, 0, 8 / 32], [2, 0, 4 / 32], [-2, 1, 2 / 32], [-1, 1, 4 / 32], [0, 1, 8 / 32], [1, 1, 4 / 32], [2, 1, 2 / 32]] },
+  { id: 'sierra',  label: 'Sierra',    kind: 'error', taps: [[1, 0, 2 / 4], [-1, 1, 1 / 4], [0, 1, 1 / 4]] },
+  { id: 'reverse', label: 'Reverse',   kind: 'reverse' }
+];
+const PALETTES = [
+  { id: 'full',    label: 'Full',      cols: null },
+  { id: 'theme',   label: 'Theme',     cols: null },
+  { id: 'mono',    label: 'Mono',      cols: ['#000000', '#ffffff'] },
+  { id: 'gameboy', label: 'Game Boy',  cols: ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'] },
+  { id: 'cga',     label: 'CGA',       cols: ['#000000', '#55ffff', '#ff55ff', '#ffffff'] },
+  { id: 'c64',     label: 'C64',       cols: ['#000000', '#626262', '#898989', '#adadad', '#ffffff', '#9f4e44', '#6d5412', '#5cab5e', '#a1683c', '#6abfc6', '#887ecb', '#50459b'] },
+  { id: 'amber',   label: 'Amber',     cols: ['#0a0500', '#insert'] }
+];
+PALETTES[6].cols = ['#0a0500', '#4a2a00', '#a06000', '#ffb000', '#ffe0a0'];
+
+function ditherDef() { return DITHERS.find((d) => d.id === state.ditherMode) || DITHERS[0]; }
+function paletteCols() {
+  const p = PALETTES.find((x) => x.id === state.ditherPalette) || PALETTES[0];
+  if (p.id === 'full') return null;
+  if (p.id === 'theme') {
+    const out = [];
+    const n = Math.max(2, state.ditherLevels);
+    const [dl, dh] = gradientEnds('dead');
+    const [ll, lh] = gradientEnds('live');
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      out.push(t < 0.5 ? mixRGB(dl, dh, t * 2) : mixRGB(ll, lh, (t - 0.5) * 2));
+    }
+    return out;
+  }
+  return p.cols.map(hexToRgb);
+}
+function mixRGB(a, b, t) {
+  return [Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t), Math.round(a[2] + (b[2] - a[2]) * t)];
+}
+function nearestIn(pal, r, g, b) {
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < pal.length; i++) {
+    const dr = pal[i][0] - r, dg = pal[i][1] - g, db = pal[i][2] - b;
+    const d = dr * dr + dg * dg + db * db;
+    if (d < bd) { bd = d; best = i; }
+  }
+  return pal[best];
+}
+const q = (v, levels) => Math.round(Math.round(v * (levels - 1) / 255) * 255 / (levels - 1));
+
+/* Dithering trades spatial resolution for apparent colour depth, so it needs
+   somewhere to spend that resolution. The cell buffer holds two to four
+   distinct colours at one entry per cell — there is nothing there to
+   approximate. Run over the drawn image instead, where the upscaled cells and
+   the filter have produced real gradients, and each cell is many pixels wide.
+   The cell-resolution path is kept only for "before the filter", where a coarse
+   pattern getting smeared by the blur is the point. */
+function applyDitherTo(px, cols, rows, c0, r0, c1, r1) {
+  const def = ditherDef();
+  if (def.kind === 'none') return;
+  const levels = Math.max(2, state.ditherLevels);
+  const pal = paletteCols();
+  const spread = (state.ditherStrength / 100) * (255 / (levels - 1));
+
+  if (def.kind === 'reverse') {
+    // average toward the tone the dither was standing in for
+    const scratch = new Uint32Array((c1 - c0) * (r1 - r0));
+    for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++) {
+      let ar = 0, ag = 0, ab = 0, n = 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const rr = clamp(r + dy, 0, rows - 1), cc = clamp(c + dx, 0, cols - 1);
+        const v = px[rr * cols + cc];
+        ar += v & 255; ag += (v >>> 8) & 255; ab += (v >>> 16) & 255; n++;
+      }
+      scratch[(r - r0) * (c1 - c0) + (c - c0)] = packRGB((ar / n) | 0, (ag / n) | 0, (ab / n) | 0);
+    }
+    for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++) {
+      px[r * cols + c] = scratch[(r - r0) * (c1 - c0) + (c - c0)];
+    }
+    return;
+  }
+
+  if (def.kind === 'error') {
+    const w = c1 - c0, h = r1 - r0;
+    const err = new Float32Array(w * h * 3);
+    for (let r = r0; r < r1; r++) {
+      for (let c = c0; c < c1; c++) {
+        const i = r * cols + c, e = ((r - r0) * w + (c - c0)) * 3;
+        const v = px[i];
+        const want = [(v & 255) + err[e], ((v >>> 8) & 255) + err[e + 1], ((v >>> 16) & 255) + err[e + 2]];
+        const got = pal ? nearestIn(pal, want[0], want[1], want[2])
+                        : [q(want[0], levels), q(want[1], levels), q(want[2], levels)];
+        px[i] = packRGB(clampInt(got[0], 0, 255), clampInt(got[1], 0, 255), clampInt(got[2], 0, 255));
+        for (const [dx, dy, wt] of def.taps) {
+          const nc = c - c0 + dx, nr = r - r0 + dy;
+          if (nc < 0 || nc >= w || nr >= h) continue;
+          const ne = (nr * w + nc) * 3;
+          for (let k = 0; k < 3; k++) err[ne + k] += (want[k] - got[k]) * wt * (state.ditherStrength / 100);
+        }
+      }
+    }
+    return;
+  }
+
+  const mat = def.kind === 'ordered' ? BAYER[def.n] : null;
+  const n = def.n || 1;
+  for (let r = r0; r < r1; r++) {
+    for (let c = c0; c < c1; c++) {
+      const i = r * cols + c, v = px[i];
+      const bias = mat ? mat[(r % n) * n + (c % n)] : (Math.random() - 0.5);
+      const o = bias * spread;
+      const rr = (v & 255) + o, gg = ((v >>> 8) & 255) + o, bb = ((v >>> 16) & 255) + o;
+      const got = pal ? nearestIn(pal, rr, gg, bb)
+                      : [q(clamp(rr, 0, 255), levels), q(clamp(gg, 0, 255), levels), q(clamp(bb, 0, 255), levels)];
+      px[i] = packRGB(clampInt(got[0], 0, 255), clampInt(got[1], 0, 255), clampInt(got[2], 0, 255));
+    }
+  }
+}
+
+/** Dither the cell buffer, before the filter smears it. */
+function applyDither(c0, r0, c1, r1) {
+  applyDitherTo(cellPix, state.cols, state.rows, c0, r0, c1, r1);
+}
+/** Dither the drawn image, which is where the gradients actually are. */
+function ditherScreen(c2d, w, h) {
+  if (ditherDef().kind === 'none' || w < 2 || h < 2) return;
+  const img = c2d.getImageData(0, 0, w, h);
+  const px = new Uint32Array(img.data.buffer);
+  applyDitherTo(px, w, h, 0, 0, w, h);
+  c2d.putImageData(img, 0, 0);
+}
+
 const HIST_CAP = 1024;
 const SERIES = [
   { id: 'live',   label: 'Live',   colour: '#ff9a00' },
@@ -3808,6 +4141,320 @@ function saveChart() {
   a.download = 'probabilistic-ca-history-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.csv';
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/* ============================ audio ============================
+
+   The field is the score, not a control signal for a drone. A playhead sweeps
+   the visible columns; the live cells in the column under it choose which notes
+   fire, with the row picking the scale degree. That is the cellular-automaton-
+   as-sequencer idea, and it works because the thing generating the randomness
+   already has structure — gliders become repeating motifs, oscillators become
+   ostinatos, chaos becomes texture.
+
+   Two layers of character sit on top of that:
+
+   * The RULESET picks the key, mode, waveform, octave spread and the Euclidean
+     drum pattern. Those come from measurable properties of the committed rules,
+     so two rulesets reliably sound like different pieces rather than the same
+     piece at different speeds.
+   * The ACTIVITY within a ruleset picks register, note length, filter and how
+     busy the percussion is, so a sparse field and a boiling one are obviously
+     the same instrument playing differently.
+
+   Timing runs off a lookahead scheduler on the audio clock rather than the
+   frame clock, because scheduling notes from rAF makes everything swing. */
+
+const MODES = [
+  { id: 'aeolian',    label: 'Aeolian',    steps: [0, 2, 3, 5, 7, 8, 10] },
+  { id: 'dorian',     label: 'Dorian',     steps: [0, 2, 3, 5, 7, 9, 10] },
+  { id: 'phrygian',   label: 'Phrygian',   steps: [0, 1, 3, 5, 7, 8, 10] },
+  { id: 'lydian',     label: 'Lydian',     steps: [0, 2, 4, 6, 7, 9, 11] },
+  { id: 'mixolydian', label: 'Mixolydian', steps: [0, 2, 4, 5, 7, 9, 10] },
+  { id: 'penta',      label: 'Pentatonic', steps: [0, 3, 5, 7, 10] },
+  { id: 'majpenta',   label: 'Major pent', steps: [0, 2, 4, 7, 9] },
+  { id: 'whole',      label: 'Whole tone', steps: [0, 2, 4, 6, 8, 10] }
+];
+const WAVES = ['triangle', 'sine', 'sawtooth', 'square'];
+
+/** Evenly spread k onsets across n steps. The standard Euclidean rhythm — it
+    produces the patterns most world music already uses, which is why it sounds
+    deliberate rather than random. */
+function euclid(k, n) {
+  const out = new Array(n).fill(false);
+  if (k <= 0 || n <= 0) return out;
+  let bucket = 0;
+  for (let i = 0; i < n; i++) {
+    bucket += k;
+    if (bucket >= n) { bucket -= n; out[i] = true; }
+  }
+  return out;
+}
+
+const audio = {
+  ctx: null, master: null, filter: null, delay: null, wet: null,
+  noise: null, timer: null, nextTime: 0, step: 0,
+  sig: null, error: '', bandCache: null, bandAt: 0
+};
+
+function audioAvailable() {
+  return typeof window !== 'undefined' && !!(window.AudioContext || window.webkitAudioContext);
+}
+
+/** A stable fingerprint of the committed rules. Everything about the character
+    of the piece is derived from this, so the same rules always sound like
+    themselves and different rules reliably do not. */
+function ruleSignature() {
+  const bs = rules.rates.birth, ds = rules.rates.death;
+  let born = 0, dies = 0, sum = 0;
+  for (let i = 0; i < bs.length; i++) { if (bs[i] > 50) { born++; sum += i * 7; } }
+  for (let i = 0; i < ds.length; i++) { if (ds[i] > 50) { dies++; sum += i * 13; } }
+  const mask = rules.offsets.birth.n;
+  const teams = rules.adversaries;
+  const decay = decayThreshold() > 0 ? 1 : 0;
+  const loose = fractionalRates();
+  const h = (sum + mask * 31 + teams * 101 + decay * 57 + (loose ? 23 : 0)) >>> 0;
+  return {
+    key: h % 12,
+    mode: MODES[h % MODES.length],
+    wave: WAVES[(born + (loose ? 2 : 0)) % WAVES.length],
+    bassWave: loose ? 'triangle' : 'sine',
+    pulses: Math.max(2, Math.min(11, born + dies)),
+    steps: [12, 16, 16, 8][mask % 4],
+    swing: loose ? 0.16 : 0,
+    spread: 1 + (mask % 3),
+    decay,
+    teams,
+    id: h
+  };
+}
+
+function audioEnsure() {
+  if (audio.ctx) return true;
+  if (!audioAvailable()) { audio.error = 'this browser has no Web Audio'; return false; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC();
+    const master = ctx.createGain();
+    master.gain.value = 0;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 2000;
+    filter.Q.value = 0.7;
+    // a short feedback delay glues the sparse notes into something continuous
+    const delay = ctx.createDelay(1.5);
+    delay.delayTime.value = 0.34;
+    const fb = ctx.createGain();
+    fb.gain.value = 0.32;
+    const wet = ctx.createGain();
+    wet.gain.value = 0.28;
+    filter.connect(master);
+    filter.connect(delay);
+    delay.connect(fb);
+    fb.connect(delay);
+    delay.connect(wet);
+    wet.connect(master);
+    master.connect(ctx.destination);
+
+    const len = Math.floor(ctx.sampleRate * 0.5);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let k = 0; k < len; k++) d[k] = Math.random() * 2 - 1;
+
+    Object.assign(audio, { ctx, master, filter, delay, wet, noise: buf, error: '' });
+    audio.sig = ruleSignature();
+    return true;
+  } catch (err) {
+    audio.error = String((err && err.message) || err);
+    return false;
+  }
+}
+
+function midiHz(n) { return 440 * Math.pow(2, (n - 69) / 12); }
+
+/** One plucked note. Short attack, exponential tail — a shape that stays out of
+    its own way when notes overlap, unlike the sustained tones it replaces. */
+function playNote(when, midi, dur, gainAmt, wave) {
+  const ctx = audio.ctx;
+  const osc = ctx.createOscillator();
+  osc.type = wave;
+  osc.frequency.value = midiHz(midi);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, when);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gainAmt), when + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+  osc.connect(g);
+  g.connect(audio.filter);
+  osc.start(when);
+  osc.stop(when + dur + 0.05);
+}
+function playDrum(when, kind, gainAmt) {
+  const ctx = audio.ctx;
+  if (kind === 'kick') {
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, when);
+    osc.frequency.exponentialRampToValueAtTime(42, when + 0.11);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gainAmt, when);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + 0.22);
+    osc.connect(g);
+    g.connect(audio.master);
+    osc.start(when);
+    osc.stop(when + 0.25);
+    return;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = audio.noise;
+  src.loop = true;
+  const bp = ctx.createBiquadFilter();
+  bp.type = kind === 'hat' ? 'highpass' : 'bandpass';
+  bp.frequency.value = kind === 'hat' ? 7000 : 1600;
+  bp.Q.value = 1.2;
+  const g = ctx.createGain();
+  const dur = kind === 'hat' ? 0.05 : 0.16;
+  g.gain.setValueAtTime(gainAmt, when);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+  src.connect(bp);
+  bp.connect(g);
+  g.connect(audio.master);
+  src.start(when);
+  src.stop(when + dur + 0.02);
+}
+
+/** Column densities and the live rows within the current column, sampled from
+    the visible field. Cached briefly so the scheduler is not re-reading the
+    grid several times per step. */
+function audioScan() {
+  const now = performance.now();
+  if (audio.bandCache && now - audio.bandAt < 45) return audio.bandCache;
+  const vis = visibleBox();
+  const cols = state.cols, grid = state.grid;
+  const mirror = gpu.active && gpu.mirror && gpu.mirror.length === grid.length ? gpu.mirror : null;
+  const width = Math.max(1, vis.c1 - vis.c0);
+  const height = Math.max(1, vis.r1 - vis.r0);
+  const nCols = Math.min(64, width);
+  const colLive = new Int32Array(nCols);
+  const rows = [];
+  for (let i = 0; i < nCols; i++) rows.push([]);
+  let live = 0, total = 0;
+  for (let r = vis.r0; r < vis.r1; r++) {
+    const base = r * cols;
+    for (let c = vis.c0; c < vis.c1; c++) {
+      total++;
+      const a = mirror ? (mirror[base + c] & CELL_ALIVE) : grid[base + c];
+      if (!a) continue;
+      live++;
+      const b = Math.min(nCols - 1, Math.floor((c - vis.c0) * nCols / width));
+      colLive[b]++;
+      if (rows[b].length < 5) rows[b].push((r - vis.r0) / height);
+    }
+  }
+  audio.bandCache = { colLive, rows, nCols, density: total ? live / total : 0, live };
+  audio.bandAt = now;
+  return audio.bandCache;
+}
+
+function audioSchedule() {
+  const ctx = audio.ctx;
+  if (!ctx || !audioShouldPlay()) return;
+  const sig = audio.sig || (audio.sig = ruleSignature());
+  const scan = audioScan();
+  const dens = scan.density;
+
+  // Activity sets the feel: sparse fields play slow, low and long; busy ones
+  // play fast, high and short.
+  const bpm = state.audioTempo * (0.75 + dens * 0.6);
+  const stepDur = 60 / bpm / 4;
+  const busy = Math.min(1, dens * 3);
+  audio.filter.frequency.setTargetAtTime(400 + 5200 * Math.pow(busy, 0.7), ctx.currentTime, 0.15);
+  audio.master.gain.setTargetAtTime((state.audioVolume / 100) * 0.5, ctx.currentTime, 0.1);
+
+  const drums = euclid(sig.pulses, sig.steps);
+  const vol = 0.16 + 0.1 * busy;
+
+  while (audio.nextTime < ctx.currentTime + 0.2) {
+    const st = audio.step % sig.steps;
+    const swing = (st % 2 === 1) ? stepDur * sig.swing : 0;
+    const when = Math.max(ctx.currentTime, audio.nextTime + swing);
+
+    // the column under the playhead selects this step's notes
+    const col = Math.floor((audio.step % sig.steps) * scan.nCols / sig.steps);
+    const picks = scan.rows[Math.min(scan.nCols - 1, col)] || [];
+    const octave = 3 + Math.round(busy * sig.spread);
+    const dur = stepDur * (2.4 - 1.5 * busy);
+
+    if (state.audioNotes) {
+      for (let i = 0; i < picks.length && i < 1 + Math.round(busy * 3); i++) {
+        const deg = Math.floor((1 - picks[i]) * sig.mode.steps.length * 2);
+        const midi = 12 * octave + sig.key
+          + sig.mode.steps[deg % sig.mode.steps.length]
+          + 12 * Math.floor(deg / sig.mode.steps.length);
+        playNote(when, midi, dur, vol / (1 + i), sig.wave);
+      }
+    }
+    if (state.audioBass && st % 4 === 0 && scan.live > 0) {
+      playNote(when, 12 * 2 + sig.key + sig.mode.steps[(audio.step >> 2) % sig.mode.steps.length],
+               stepDur * 3.2, vol * 1.1, sig.bassWave);
+    }
+    if (state.audioDrums) {
+      if (drums[st]) playDrum(when, 'kick', 0.32 * (0.5 + busy));
+      if (busy > 0.35 && st % 2 === 1) playDrum(when, 'hat', 0.06 * busy);
+      if (sig.decay && st % sig.steps === sig.steps - 1) playDrum(when, 'snare', 0.12 * busy);
+    }
+    audio.nextTime += stepDur;
+    audio.step++;
+  }
+}
+/** Sound follows the transport unless told otherwise, so pausing the field
+    stops the music rather than leaving a sequencer running over a frozen
+    score. Ticking "always on" decouples the two. */
+function audioShouldPlay() {
+  return state.audioOn && !!audio.ctx && (state.audioAlways || state.running);
+}
+function audioStart() {
+  if (!audio.ctx || audio.timer !== null) return;   // already running: don't restart the bar
+  audio.nextTime = audio.ctx.currentTime + 0.06;
+  audio.step = 0;
+  audio.sig = ruleSignature();
+  audio.timer = setInterval(audioSchedule, 25);
+}
+function audioSync() {
+  if (!audio.ctx) return;
+  if (audioShouldPlay()) {
+    if (audio.ctx.state === 'suspended') audio.ctx.resume();
+    audioStart();
+  } else audioStop();
+}
+function audioStop() {
+  if (audio.timer !== null) { clearInterval(audio.timer); audio.timer = null; }
+  if (audio.ctx) audio.master.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.08);
+}
+/** Rules changed, so the piece should change with them. */
+function audioRefreshSignature() {
+  if (!audio.ctx) return;
+  audio.sig = ruleSignature();
+  syncAudioUI();
+}
+function syncAudioUI() {
+  const on = state.audioOn;
+  $('audioBox').classList.toggle('hidden', !on);
+  const sig = audio.sig || (audioAvailable() ? ruleSignature() : null);
+  $('audioNote').textContent = audio.error
+    ? 'Sound unavailable: ' + audio.error + '.'
+    : 'The field is the score: a playhead sweeps the visible columns and the live cells under it choose the notes. '
+      + 'The ruleset picks the key, mode, timbre and drum pattern, so different rules sound like different pieces; '
+      + 'how busy the field is picks the register, tempo and note length within that.'
+      + (state.audioOn
+          ? (state.audioAlways
+              ? ' It keeps playing while the field is paused.'
+              : ' It starts and stops with the simulation.')
+          : '');
+  if (sig) {
+    const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    $('audioSig').textContent = names[sig.key] + ' ' + sig.mode.label + ' · ' + sig.wave
+      + ' · ' + sig.pulses + '/' + sig.steps + (sig.swing ? ' swung' : ' straight');
+  }
 }
 
 /* ============================ stats ============================ */
@@ -4794,6 +5441,14 @@ function drawMinimap(force) {
     Math.round(v.x / box.w * w) + 0.5, Math.round(v.y / box.h * h) + 0.5,
     Math.max(2, Math.round(w / v.zoom) - 1), Math.max(2, Math.round(h / v.zoom) - 1));
 }
+/** Swallow pointer events over the pinned chart so a click there never reaches
+    the field behind it. */
+function setupHistOverlay() {
+  const hm = $('histMini');
+  for (const ev of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'contextmenu']) {
+    hm.addEventListener(ev, (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false });
+  }
+}
 function setupMinimap() {
   const mm = $('mini');
   let dragging = false;
@@ -5261,6 +5916,12 @@ function buildSave(includeState) {
                density: state.density, brush: state.brush, lineMode: state.lineMode,
                liveApply: state.liveApply, tool: state.tool, fillShape: state.fillShape,
                gutter: state.gutter, histMini: state.histMini, histOpen: state.histOpen,
+               audioVolume: state.audioVolume, audioTempo: state.audioTempo,
+               audioNotes: state.audioNotes, audioBass: state.audioBass, audioDrums: state.audioDrums,
+               audioAlways: state.audioAlways,
+               ditherMode: state.ditherMode, ditherLevels: state.ditherLevels,
+               ditherPalette: state.ditherPalette, ditherStrength: state.ditherStrength,
+               ditherBefore: state.ditherBefore,
                filterOn: state.filterOn, filterSize: state.filterSize,
                filterKernel: state.filterKernel.slice(), filterMix: state.filterMix,
                sharpAmount: state.sharpAmount, sharpIterations: state.sharpIterations,
@@ -5402,11 +6063,23 @@ function applySave(doc) {
     }
     if (Number.isFinite(d0.gutter)) ui.gutter.set(clampInt(d0.gutter, 0, 72));
     if (typeof d0.histMini === 'boolean') { state.histMini = d0.histMini; $('showHistMini').checked = d0.histMini; }
+    if (Number.isFinite(d0.audioVolume)) ui.audioVolume.set(clampInt(d0.audioVolume, 0, 100));
+    if (Number.isFinite(d0.audioTempo)) ui.audioTempo.set(clampInt(d0.audioTempo, 40, 200));
+    for (const key of ['audioNotes', 'audioBass', 'audioDrums', 'audioAlways']) {
+      if (typeof d0[key] === 'boolean') { state[key] = d0[key]; $(key).checked = d0[key]; }
+    }
+    audioSync();
     if (typeof d0.histOpen === 'boolean') {
       state.histOpen = d0.histOpen;
       $('histPanel').classList.toggle('hidden', !d0.histOpen);
       $('histToggle').setAttribute('aria-pressed', String(d0.histOpen));
     }
+    if (DITHERS.some((d) => d.id === d0.ditherMode)) { state.ditherMode = d0.ditherMode; $('ditherSel').value = d0.ditherMode; }
+    if (PALETTES.some((pl) => pl.id === d0.ditherPalette)) { state.ditherPalette = d0.ditherPalette; $('ditherPalSel').value = d0.ditherPalette; }
+    if (Number.isFinite(d0.ditherLevels)) ui.ditherLevels.set(clampInt(d0.ditherLevels, 2, 32));
+    if (Number.isFinite(d0.ditherStrength)) ui.ditherStrength.set(clampInt(d0.ditherStrength, 0, 200));
+    if (typeof d0.ditherBefore === 'boolean') { state.ditherBefore = d0.ditherBefore; $('ditherBefore').checked = d0.ditherBefore; }
+    syncDitherUI();
     if (FILTER_SIZES.includes(d0.filterSize)) {
       state.filterSize = d0.filterSize;
       state.filterKernel = new Array(d0.filterSize * d0.filterSize).fill(0);
@@ -5710,6 +6383,20 @@ function preserveScroll(fn) {
   fn();
   if (body && body.scrollTop !== keep) body.scrollTop = keep;
 }
+function syncDitherUI() {
+  const def = ditherDef();
+  const on = def.kind !== 'none';
+  $('ditherBox').classList.toggle('hidden', !on);
+  $('ditherChip').textContent = on ? def.label + ' · ' + (state.ditherPalette === 'full'
+    ? state.ditherLevels + ' levels' : (PALETTES.find((p) => p.id === state.ditherPalette) || {}).label) : 'off';
+  $('ditherLevelField').classList.toggle('off', state.ditherPalette !== 'full' && state.ditherPalette !== 'theme');
+  const cpuOnly = def.kind === 'error';
+  $('ditherNote').textContent = def.kind === 'reverse'
+    ? 'Averages a dithered image back toward the continuous tone it stood in for — useful after a hard palette, or on its own to soften.'
+    : cpuOnly
+      ? def.label + ' carries its rounding error forward to pixels that have not been drawn yet, which is inherently sequential. It runs on the CPU engine; on the GPU the ordered patterns above are the ones that parallelise.'
+      : 'Each pixel decides from its own position, so this runs on either engine. Strength above 100 exaggerates the pattern.';
+}
 function syncFilterUI() {
   const on = state.filterOn;
   $('filterBox').classList.toggle('hidden', !on);
@@ -5889,7 +6576,9 @@ function setColourMode(mode) {
   for (const b of document.querySelectorAll('[data-colour]')) {
     b.setAttribute('aria-selected', b.dataset.colour === mode ? 'true' : 'false');
   }
-  $('colourHelp').textContent = mode === 'rates'
+  $('colourHelp').textContent = mode === 'classic'
+    ? 'Two flat tones straight from the theme — live cells one colour, dead cells the other, with no shading at all.'
+    : mode === 'rates'
     ? 'Live cells shade by their death chance, dead cells by their birth chance.'
     : mode === 'decay'
       ? 'Every cell shades by how close its counter is to the threshold. Needs a threshold above 0.'
@@ -6019,6 +6708,36 @@ function setupUI() {
   $('chartClear').addEventListener('click', histReset);
   $('chartSave').addEventListener('click', saveChart);
 
+  /* dither */
+  const dSel = $('ditherSel'), pSel = $('ditherPalSel');
+  for (const d of DITHERS) {
+    const o = document.createElement('option');
+    o.value = d.id;
+    o.textContent = d.label + (d.kind === 'error' ? ' (CPU)' : '');
+    dSel.append(o);
+  }
+  for (const pl of PALETTES) {
+    const o = document.createElement('option');
+    o.value = pl.id;
+    o.textContent = pl.label;
+    pSel.append(o);
+  }
+  dSel.value = state.ditherMode;
+  pSel.value = state.ditherPalette;
+  dSel.addEventListener('change', () => {
+    state.ditherMode = dSel.value;
+    preserveScroll(syncDitherUI);
+    scheduleDraw();
+  });
+  pSel.addEventListener('change', () => {
+    state.ditherPalette = pSel.value;
+    preserveScroll(syncDitherUI);
+    scheduleDraw();
+  });
+  ui.ditherLevels = bindPair('ditherLevR', 'ditherLevN', (v) => { state.ditherLevels = v; syncDitherUI(); scheduleDraw(); });
+  ui.ditherStrength = bindPair('ditherStrR', 'ditherStrN', (v) => { state.ditherStrength = v; scheduleDraw(); });
+  $('ditherBefore').addEventListener('change', (e) => { state.ditherBefore = e.target.checked; scheduleDraw(); });
+
   /* display filter */
   $('filterOn').addEventListener('change', (e) => {
     state.filterOn = e.target.checked;
@@ -6139,6 +6858,27 @@ function setupUI() {
     noteChange('birth:adversaries', 'adversary count');
     scheduleDraw();
   });
+
+  /* sound */
+  $('audioOn').addEventListener('change', (e) => {
+    state.audioOn = e.target.checked;
+    // The change event is the user gesture, so this is where the context can
+    // legally be created and resumed.
+    if (state.audioOn && !audioEnsure()) state.audioOn = false;
+    e.target.checked = state.audioOn;
+    audioSync();
+    preserveScroll(syncAudioUI);
+  });
+  $('audioAlways').addEventListener('change', (e) => {
+    state.audioAlways = e.target.checked;
+    audioSync();
+    syncAudioUI();
+  });
+  ui.audioVolume = bindPair('audioVolR', 'audioVolN', (v) => { state.audioVolume = v; });
+  ui.audioTempo = bindPair('audioTempoR', 'audioTempoN', (v) => { state.audioTempo = v; });
+  for (const key of ['audioNotes', 'audioBass', 'audioDrums']) {
+    $(key).addEventListener('change', (e) => { state[key] = e.target.checked; });
+  }
 
   /* file */
   $('saveBtn').addEventListener('click', saveToFile);
@@ -6340,6 +7080,7 @@ function init() {
   setupUI();
   setupPanelResize();
   setupMinimap();
+  setupHistOverlay();
   setTool('brush');
   refreshSelectionUI();
   setupPointer(canvas);
@@ -6348,6 +7089,8 @@ function init() {
   syncGradients();
   renderThemes();
   syncClampChip();
+  syncAudioUI();
+  syncDitherUI();
   renderFilterGrid();
   syncFilterUI();
   syncDecayUI();
