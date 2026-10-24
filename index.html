@@ -55,6 +55,40 @@
             color: #555;
             margin: 0;
         }
+        footer {
+            margin-top: 3rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #888;
+        }
+        footer a, footer button {
+            color: #888;
+        }
+        footer button {
+            background: none;
+            border: 0;
+            padding: 0;
+            font: inherit;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        /* ------------------------------------------------------------- about */
+        .about-dlg {
+          background: #fff; color: #333; border: 1px solid #ddd; border-radius: 6px;
+          padding: 16px 18px; width: min(520px, calc(100vw - 32px));
+          max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow: auto;
+          font-family: inherit; font-size: 13px; line-height: 1.5;
+        }
+        .about-dlg::backdrop { background: rgba(0, 0, 0, .5); }
+        .about-dlg h2 { margin: 0 0 8px; font-size: 15px; }
+        .about-dlg h3 { margin: 14px 0 6px; font-size: 13px; }
+        .about-dlg p { margin: 0 0 8px; }
+        .about-dlg a { color: #0366d6; }
+        .about-dlg ul { margin: 0; padding: 0; list-style: none; }
+        .about-dlg li { margin: 0 0 4px; }
+        .about-dlg time { color: #888; margin-right: 8px; font-variant-numeric: tabular-nums; }
+        .about-dlg .about-muted { color: #888; }
+        .about-dlg form { display: flex; justify-content: flex-end; margin-top: 12px; }
     </style>
 </head>
 <body>
@@ -75,6 +109,19 @@
                 <li>Pick from preset patterns (lines, grids, circles, spirals, dots...) or draw your own tile</li>
                 <li>Set each layer's colour, opacity, and blend mode</li>
                 <li>Drag, rotate, and scale a layer by hand, or animate it with presets or a drawn path</li>
+            </ul>
+        </div>
+
+        <div class="project">
+            <a href="https://sonusario.github.io/flashcard_app/">
+                <img src="assets/Screenshot_flashcard_app.png" alt="Screenshot of Flashcards">
+            </a>
+            <h2><a href="https://sonusario.github.io/flashcard_app/">Flashcards</a></h2>
+            <p>A single-file web port of my Godot flashcard app:</p>
+            <ul>
+                <li>Cards can live in any number of decks, written in markdown with images and audio</li>
+                <li>Spaced repetition with Leitner levels on golden-ratio intervals</li>
+                <li>Imports Anki .apkg decks, and ships with the CompTIA Security+ SY0-701 acronyms</li>
             </ul>
         </div>
 
@@ -116,6 +163,70 @@
             </p>
         </div>
     </main>
+
+    <footer>
+        <a href="https://github.com/sonusario/sonusario.github.io">Source on GitHub</a> ·
+        <button id="aboutBtn" type="button">About</button>
+    </footer>
+
+<dialog id="aboutDlg" class="about-dlg" aria-labelledby="aboutTitle">
+  <h2 id="aboutTitle">About Sonusario's Selects</h2>
+  <p>A hub for my web projects. Each card links to a live app; each app has its own About with a link back here.</p>
+  <p><a href="https://github.com/sonusario/sonusario.github.io">Source on GitHub</a> ·
+     <a href="https://github.com/sonusario">All repositories</a></p>
+  <h3>Changes</h3>
+  <ul id="aboutLog"><li class="about-muted">Loading changes…</li></ul>
+  <form method="dialog"><button>Close</button></form>
+</dialog>
+<script>
+/* About: links to the repository and the hub, plus a one-line-per-change log
+   read from the repository's main branch. It follows the first parent from the
+   tip of main, so each merged pull request is one line (its title). */
+(function () {
+  var REPO = 'sonusario/sonusario.github.io';
+  var dlg = document.getElementById('aboutDlg');
+  var log = document.getElementById('aboutLog');
+  var loaded = false;
+
+  function el(tag, text, attrs) {
+    var node = document.createElement(tag);
+    if (text) node.textContent = text;
+    for (var key in attrs || {}) node.setAttribute(key, attrs[key]);
+    return node;
+  }
+
+  function show(commits) {
+    var bySha = new Map(commits.map(function (c) { return [c.sha, c]; }));
+    log.replaceChildren();
+    for (var c = commits[0]; c; c = c.parents[0] && bySha.get(c.parents[0].sha)) {
+      var lines = c.commit.message.split('\n');
+      var merged = /^Merge pull request #\d+/.test(lines[0]);
+      var text = (merged && lines.slice(1).find(function (l) { return l.trim(); })) || lines[0];
+      var li = el('li');
+      li.append(el('time', c.commit.committer.date.slice(0, 10)),
+                el('a', text.trim(), { href: c.html_url, target: '_blank', rel: 'noopener' }));
+      log.append(li);
+    }
+  }
+
+  function fail() {
+    var li = el('li', "Couldn't load the change log. ", { 'class': 'about-muted' });
+    li.append(el('a', 'See the history on GitHub.',
+      { href: 'https://github.com/' + REPO + '/commits/main', target: '_blank', rel: 'noopener' }));
+    log.replaceChildren(li);
+  }
+
+  document.getElementById('aboutBtn').addEventListener('click', function () {
+    dlg.showModal();
+    if (loaded) return;
+    loaded = true;
+    fetch('https://api.github.com/repos/' + REPO + '/commits?sha=main&per_page=100')
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(show)
+      .catch(function () { loaded = false; fail(); });
+  });
+})();
+</script>
 
 </body>
 </html>
